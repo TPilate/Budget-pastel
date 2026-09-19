@@ -7,6 +7,9 @@ export default defineNuxtConfig({
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
     },
   },
+  devServer: {
+    host: '127.0.0.1',
+  },
   pwa: {
     registerType: 'autoUpdate',
     manifest: {
