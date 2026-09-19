@@ -1,4 +1,4 @@
-import { pgTable, uuid, integer, timestamp, numeric, text } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, integer, timestamp, numeric, text, uniqueIndex } from 'drizzle-orm/pg-core'
 import { closureStatusEnum, closureDestinationEnum } from './enums'
 import { envelopes, savingsGoals } from './reference'
 
@@ -8,7 +8,9 @@ export const monthClosures = pgTable('month_closures', {
   month: integer('month').notNull(),
   status: closureStatusEnum('status').notNull().default('open'),
   closedAt: timestamp('closed_at', { withTimezone: true }),
-})
+}, (table) => ({
+  yearMonthUnique: uniqueIndex('month_closures_year_month_idx').on(table.year, table.month),
+}))
 
 export const closureEnvelopeDecisions = pgTable('closure_envelope_decisions', {
   id: uuid('id').defaultRandom().primaryKey(),

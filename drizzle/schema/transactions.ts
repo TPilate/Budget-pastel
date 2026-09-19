@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, numeric, date, timestamp, integer } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, numeric, date, timestamp, integer, index, uniqueIndex } from 'drizzle-orm/pg-core'
 import { financedByEnum } from './enums'
 import { categories, envelopes, accounts, incomeTypes } from './reference'
 
@@ -14,7 +14,9 @@ export const expenseEntries = pgTable('expense_entries', {
   monthAssigned: integer('month_assigned').notNull(),
   yearAssigned: integer('year_assigned').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, (table) => ({
+  yearMonthIdx: index('expense_entries_year_month_idx').on(table.yearAssigned, table.monthAssigned),
+}))
 
 export const incomeEntries = pgTable('income_entries', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -29,7 +31,9 @@ export const incomeEntries = pgTable('income_entries', {
   expectedAmount: numeric('expected_amount', { precision: 10, scale: 2 }),
   expectedDate: date('expected_date'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, (table) => ({
+  yearMonthIdx: index('income_entries_year_month_idx').on(table.yearAssigned, table.monthAssigned),
+}))
 
 export const transfers = pgTable('transfers', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -41,7 +45,9 @@ export const transfers = pgTable('transfers', {
   monthAssigned: integer('month_assigned').notNull(),
   yearAssigned: integer('year_assigned').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, (table) => ({
+  yearMonthIdx: index('transfers_year_month_idx').on(table.yearAssigned, table.monthAssigned),
+}))
 
 export const monthlyEnvelopeAllocations = pgTable('monthly_envelope_allocations', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -51,4 +57,6 @@ export const monthlyEnvelopeAllocations = pgTable('monthly_envelope_allocations'
   baseCeiling: numeric('base_ceiling', { precision: 10, scale: 2 }).notNull(),
   carriedOverAmount: numeric('carried_over_amount', { precision: 10, scale: 2 }).notNull().default('0'),
   overspendDeduction: numeric('overspend_deduction', { precision: 10, scale: 2 }).notNull().default('0'),
-})
+}, (table) => ({
+  envelopeYearMonthUnique: uniqueIndex('monthly_envelope_allocations_envelope_year_month_idx').on(table.envelopeId, table.year, table.month),
+}))

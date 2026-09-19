@@ -1,4 +1,4 @@
-import { pgTable, uuid, integer, numeric, date, text, timestamp } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, integer, numeric, date, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 import { savingsGoals } from './reference'
 
 export const savingsEntries = pgTable('savings_entries', {
@@ -29,4 +29,6 @@ export const livretYearlyHistory = pgTable('livret_yearly_history', {
   livretId: uuid('livret_id').notNull().references(() => livrets.id),
   year: integer('year').notNull(),
   closingBalance: numeric('closing_balance', { precision: 10, scale: 2 }).notNull(),
-})
+}, (table) => ({
+  livretYearUnique: uniqueIndex('livret_yearly_history_livret_year_idx').on(table.livretId, table.year),
+}))
