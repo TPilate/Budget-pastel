@@ -1,6 +1,6 @@
 export default defineNuxtConfig({
   compatibilityDate: '2026-09-19',
-  modules: ['@nuxt/ui', '@vite-pwa/nuxt'],
+  modules: ['@nuxt/ui', '@vite-pwa/nuxt', '@nuxt/fonts'],
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
     public: {

@@ -1,2 +1,37 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+@theme {
+  --color-ink: #3a3450;
+  --color-ink-muted: rgb(58 52 80 / 72%);
+  --color-ink-faint: rgb(58 52 80 / 35%);
+  --color-app-bg: #f7f4fb;
+  --color-toggle-track: #ece8f4;
+  --color-divider: #f1eef6;
+  --color-mint: #a8dcc4;
+  --color-mint-ink: #2f5c48;
+  --color-mint-bar: #7cc6a6;
+  --color-warn-bg: #f7ddd2;
+  --color-warn-ink: #b4553a;
+  --color-warn-bar: #d3714f;
+  --color-violet-bar: #b19ee8;
+  --color-azure-bar: #86bde8;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background-color: var(--color-app-bg);
+  color: var(--color-ink);
+  --_color-ink-muted: var(--color-ink-muted);
+  --_color-ink-faint: var(--color-ink-faint);
+  --_color-toggle-track: var(--color-toggle-track);
+  --_color-divider: var(--color-divider);
+  --_color-mint: var(--color-mint);
+  --_color-mint-ink: var(--color-mint-ink);
+  --_color-mint-bar: var(--color-mint-bar);
+  --_color-warn-bg: var(--color-warn-bg);
+  --_color-warn-ink: var(--color-warn-ink);
+  --_color-warn-bar: var(--color-warn-bar);
+  --_color-violet-bar: var(--color-violet-bar);
+  --_color-azure-bar: var(--color-azure-bar);
+}
