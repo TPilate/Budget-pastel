@@ -3,10 +3,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return
   }
 
-  const supabase = useSupabaseClient()
-  const { data } = await supabase.auth.getSession()
+  const { error } = await useFetch('/api/health')
 
-  if (!data.session) {
+  if (error.value?.statusCode === 401) {
     return navigateTo('/login')
   }
 })

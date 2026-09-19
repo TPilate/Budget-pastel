@@ -1,4 +1,9 @@
 <script setup lang="ts">
+const { error: sessionCheckError } = await useFetch('/api/health')
+if (!sessionCheckError.value) {
+  await navigateTo('/')
+}
+
 const email = ref('')
 const password = ref('')
 const errorMessage = ref('')
