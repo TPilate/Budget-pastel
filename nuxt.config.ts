@@ -1,6 +1,7 @@
 export default defineNuxtConfig({
   compatibilityDate: '2026-09-19',
   modules: ['@nuxt/ui', '@vite-pwa/nuxt'],
+  css: ['~/assets/css/main.css'],
   runtimeConfig: {
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
@@ -8,6 +9,8 @@ export default defineNuxtConfig({
     },
   },
   devServer: {
+    // Bind to IPv4 explicitly: some environments resolve 'localhost' to ::1,
+    // which the dev server (and Playwright's webServer) cannot connect to.
     host: '127.0.0.1',
   },
   pwa: {
