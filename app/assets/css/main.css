@@ -21,17 +21,4 @@
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
   background-color: var(--color-app-bg);
-  color: var(--color-ink);
-  --_color-ink-muted: var(--color-ink-muted);
-  --_color-ink-faint: var(--color-ink-faint);
-  --_color-toggle-track: var(--color-toggle-track);
-  --_color-divider: var(--color-divider);
-  --_color-mint: var(--color-mint);
-  --_color-mint-ink: var(--color-mint-ink);
-  --_color-mint-bar: var(--color-mint-bar);
-  --_color-warn-bg: var(--color-warn-bg);
-  --_color-warn-ink: var(--color-warn-ink);
-  --_color-warn-bar: var(--color-warn-bar);
-  --_color-violet-bar: var(--color-violet-bar);
-  --_color-azure-bar: var(--color-azure-bar);
 }
