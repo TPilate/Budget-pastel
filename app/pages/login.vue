@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ layout: false })
+
 const { error: sessionCheckError } = await useFetch('/api/health')
 if (!sessionCheckError.value) {
   await navigateTo('/')

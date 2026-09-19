@@ -63,5 +63,10 @@ test('adds a category from the Paramètres page', async ({ page }) => {
   await page.getByPlaceholder('Nouvelle catégorie').fill('Test E2E')
   await page.getByRole('button', { name: 'Ajouter' }).first().click()
 
-  await expect(page.getByText('🧪 Test E2E')).toBeVisible()
+  // .first(): this test isn't idempotent against a persistent real database —
+  // repeated runs each add another "🧪 Test E2E" category (nothing archives
+  // it afterward), so asserting the bare text can hit a Playwright strict-mode
+  // violation once more than one match exists. Asserting on the first match is
+  // enough to prove the add-category flow worked.
+  await expect(page.getByText('🧪 Test E2E').first()).toBeVisible()
 })
