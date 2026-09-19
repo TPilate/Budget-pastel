@@ -12,7 +12,8 @@
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "seed:user": "tsx scripts/seed-user.ts"
+    "seed:user": "tsx scripts/seed-user.ts",
+    "seed:reference-data": "tsx scripts/seed-reference-data.ts"
   },
   "dependencies": {
     "@nuxt/fonts": "^0.14.0",
