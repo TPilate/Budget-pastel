@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const input = expenseEntryInputSchema.parse(body)
 
-  const entryDate = new Date(input.date)
+  const [entryYear, entryMonth] = input.date.split('-').map(Number)
 
   const [row] = await db
     .insert(expenseEntries)
@@ -20,8 +20,8 @@ export default defineEventHandler(async (event) => {
       accountId: input.accountId ?? null,
       envelopeId: input.envelopeId ?? null,
       financedBy: input.financedBy,
-      monthAssigned: entryDate.getMonth() + 1,
-      yearAssigned: entryDate.getFullYear(),
+      monthAssigned: entryMonth,
+      yearAssigned: entryYear,
     })
     .returning()
 
