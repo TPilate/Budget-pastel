@@ -1384,6 +1384,8 @@ git commit -m "feat: add savings goals route and dashboard summary endpoint"
 - Consumes: `GET /api/dashboard/summary` (Task 7).
 - Produces: the full `/` dashboard page. `StatCard`/`DonutChart`/`EnvelopeCard` are local to this page for now (not yet imported elsewhere) — Milestone 5's Enveloppes page may reuse `EnvelopeCard`'s visual pattern later, but this plan does not generalize it preemptively.
 
+**Component naming note:** `nuxt.config.ts`'s `components` array only sets `pathPrefix: false` for `~/components/entry` (so `ExpenseForm.vue` resolves as `<ExpenseForm>`, not `<EntryExpenseForm>`). It does *not* do this for other subdirectories, so under Nuxt's default auto-import behavior, `app/components/dashboard/StatCard.vue` registers as `<DashboardStatCard>` (directory name + filename, PascalCased), not `<StatCard>`. The template in Step 4 below uses the correct prefixed tag names (`<DashboardStatCard>`, `<DashboardDonutChart>`, `<DashboardEnvelopeCard>`) — use those exact tag names, not the bare component names, and do not modify `nuxt.config.ts` to add a `dashboard` override (unnecessary — the prefixed names work correctly with zero config changes).
+
 - [ ] **Step 1: Write `app/components/dashboard/StatCard.vue`**
 
 ```vue
@@ -1588,14 +1590,14 @@ const donutSegments = computed(() => {
 
     <template v-if="data">
       <div class="grid grid-cols-4 gap-4">
-        <StatCard label="Salaire reçu" :value="euro(data.salaryReceived)" :hint="`${data.summary.salaryVsExpected >= 0 ? '+' : ''}${data.summary.salaryVsExpected.toFixed(0)} € vs prévu`" />
-        <StatCard label="Épargne versée" :value="euro(data.savingsTotal)" />
-        <StatCard label="Enveloppes" :value="euro(data.summary.breakdown.envelopes.amount)" :hint="`sur ${data.envelopesTotalCeiling.toFixed(0)} € de plafonds`" />
-        <StatCard label="Reste à dépenser" :value="euro(data.summary.resteADepenser)" :hint="`soit ${data.summary.resteADepenserParJour.toFixed(0)} € / jour`" highlighted />
+        <DashboardStatCard label="Salaire reçu" :value="euro(data.salaryReceived)" :hint="`${data.summary.salaryVsExpected >= 0 ? '+' : ''}${data.summary.salaryVsExpected.toFixed(0)} € vs prévu`" />
+        <DashboardStatCard label="Épargne versée" :value="euro(data.savingsTotal)" />
+        <DashboardStatCard label="Enveloppes" :value="euro(data.summary.breakdown.envelopes.amount)" :hint="`sur ${data.envelopesTotalCeiling.toFixed(0)} € de plafonds`" />
+        <DashboardStatCard label="Reste à dépenser" :value="euro(data.summary.resteADepenser)" :hint="`soit ${data.summary.resteADepenserParJour.toFixed(0)} € / jour`" highlighted />
       </div>
 
       <div class="grid grid-cols-[auto_1fr] items-center gap-6 rounded-[22px] bg-white p-5">
-        <DonutChart :segments="donutSegments" :center-percent="data.summary.usagePercent" center-label="du salaire affecté" />
+        <DashboardDonutChart :segments="donutSegments" :center-percent="data.summary.usagePercent" center-label="du salaire affecté" />
         <div class="grid grid-cols-2 gap-x-8 gap-y-3 text-[12.5px]">
           <div class="flex items-center justify-between">
             <span class="flex items-center gap-1.5 font-semibold text-ink-muted"><span class="size-2 rounded-full bg-violet-bar" />Charges fixes</span>
@@ -1620,7 +1622,7 @@ const donutSegments = computed(() => {
         <div class="rounded-[22px] bg-white p-5">
           <p class="text-[13.5px] font-extrabold text-ink">Enveloppes du mois</p>
           <div class="mt-3 grid grid-cols-3 gap-3">
-            <EnvelopeCard
+            <DashboardEnvelopeCard
               v-for="envelope in data.homeEnvelopes"
               :key="envelope.id"
               :emoji="envelope.emoji"
