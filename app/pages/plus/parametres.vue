@@ -5,19 +5,14 @@ interface ReferenceItem {
   emoji: string
 }
 
-const categories = ref<ReferenceItem[]>([])
-const envelopes = ref<ReferenceItem[]>([])
-const incomeTypes = ref<ReferenceItem[]>([])
-const accounts = ref<ReferenceItem[]>([])
+const { data: categories, refresh: refreshCategories } = await useFetch<ReferenceItem[]>('/api/categories', { default: () => [] })
+const { data: envelopes, refresh: refreshEnvelopes } = await useFetch<ReferenceItem[]>('/api/envelopes', { default: () => [] })
+const { data: incomeTypes, refresh: refreshIncomeTypes } = await useFetch<ReferenceItem[]>('/api/income-types', { default: () => [] })
+const { data: accounts, refresh: refreshAccounts } = await useFetch<ReferenceItem[]>('/api/accounts', { default: () => [] })
 
 async function loadAll() {
-  categories.value = await $fetch('/api/categories')
-  envelopes.value = await $fetch('/api/envelopes')
-  incomeTypes.value = await $fetch('/api/income-types')
-  accounts.value = await $fetch('/api/accounts')
+  await Promise.all([refreshCategories(), refreshEnvelopes(), refreshIncomeTypes(), refreshAccounts()])
 }
-
-await loadAll()
 
 const newCategory = reactive({ name: '', emoji: '' })
 const newEnvelope = reactive({ name: '', emoji: '' })
