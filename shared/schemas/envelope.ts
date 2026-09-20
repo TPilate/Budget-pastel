@@ -11,7 +11,7 @@ export const envelopeInputSchema = z.object({
 })
 
 export const envelopePatchSchema = envelopeInputSchema.partial().extend({
-  archivedAt: z.string().datetime().nullable().optional(),
+  archivedAt: z.coerce.date().nullable().optional(),
 })
 
 export type EnvelopeInput = z.infer<typeof envelopeInputSchema>

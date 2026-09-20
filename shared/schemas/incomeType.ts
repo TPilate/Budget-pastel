@@ -8,7 +8,7 @@ export const incomeTypeInputSchema = z.object({
 })
 
 export const incomeTypePatchSchema = incomeTypeInputSchema.partial().extend({
-  archivedAt: z.string().datetime().nullable().optional(),
+  archivedAt: z.coerce.date().nullable().optional(),
 })
 
 export type IncomeTypeInput = z.infer<typeof incomeTypeInputSchema>

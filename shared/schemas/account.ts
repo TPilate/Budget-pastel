@@ -6,7 +6,7 @@ export const accountInputSchema = z.object({
 })
 
 export const accountPatchSchema = accountInputSchema.partial().extend({
-  archivedAt: z.string().datetime().nullable().optional(),
+  archivedAt: z.coerce.date().nullable().optional(),
 })
 
 export type AccountInput = z.infer<typeof accountInputSchema>

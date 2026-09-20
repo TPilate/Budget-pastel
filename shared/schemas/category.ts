@@ -9,7 +9,7 @@ export const categoryInputSchema = z.object({
 })
 
 export const categoryPatchSchema = categoryInputSchema.partial().extend({
-  archivedAt: z.string().datetime().nullable().optional(),
+  archivedAt: z.coerce.date().nullable().optional(),
 })
 
 export type CategoryInput = z.infer<typeof categoryInputSchema>
