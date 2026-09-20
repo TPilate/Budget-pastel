@@ -1,12 +1,12 @@
 import { requireUser } from '../../utils/auth'
 import { db } from '../../utils/db'
+import { validateBody } from '../../utils/validateBody'
 import { transfers } from '../../../drizzle/schema'
 import { transferInputSchema } from '../../../shared/schemas/transfer'
 
 export default defineEventHandler(async (event) => {
   await requireUser(event)
-  const body = await readBody(event)
-  const input = transferInputSchema.parse(body)
+  const input = await validateBody(event, transferInputSchema)
 
   // Derive date/month/year from the same UTC-based ISO string, not from
   // Date's local-timezone getters — mixing UTC parsing with local getters

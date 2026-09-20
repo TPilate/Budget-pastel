@@ -1,12 +1,12 @@
 import { requireUser } from '../../utils/auth'
 import { db } from '../../utils/db'
+import { validateBody } from '../../utils/validateBody'
 import { expenseEntries } from '../../../drizzle/schema'
 import { expenseEntryInputSchema } from '../../../shared/schemas/expenseEntry'
 
 export default defineEventHandler(async (event) => {
   await requireUser(event)
-  const body = await readBody(event)
-  const input = expenseEntryInputSchema.parse(body)
+  const input = await validateBody(event, expenseEntryInputSchema)
 
   const [entryYear, entryMonth] = input.date.split('-').map(Number)
 

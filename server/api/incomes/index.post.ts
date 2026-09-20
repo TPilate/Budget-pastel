@@ -1,12 +1,12 @@
 import { requireUser } from '../../utils/auth'
 import { db } from '../../utils/db'
+import { validateBody } from '../../utils/validateBody'
 import { incomeEntries } from '../../../drizzle/schema'
 import { incomeEntryInputSchema } from '../../../shared/schemas/incomeEntry'
 
 export default defineEventHandler(async (event) => {
   await requireUser(event)
-  const body = await readBody(event)
-  const input = incomeEntryInputSchema.parse(body)
+  const input = await validateBody(event, incomeEntryInputSchema)
 
   const [row] = await db
     .insert(incomeEntries)
