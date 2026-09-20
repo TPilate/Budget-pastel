@@ -23,26 +23,43 @@ const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juil
 const now = new Date()
 const monthAssigned = ref(now.getMonth() + 1)
 const yearAssigned = ref(now.getFullYear())
+const yearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1]
 const detailsText = ref('')
 const targetEnvelopeId = ref('')
 
 const selectedIncomeType = computed(() => incomeTypes.value.find((incomeType: any) => incomeType.id === incomeTypeId.value))
 
+const errorMessage = ref('')
+const isSubmitting = ref(false)
+
+const canSubmit = computed(() => amount.value > 0 && label.value.trim().length > 0 && incomeTypeId.value.length > 0)
+
 async function submit() {
-  await $fetch('/api/incomes', {
-    method: 'POST',
-    body: {
-      incomeTypeId: incomeTypeId.value,
-      label: label.value,
-      amount: amount.value,
-      dateReceived: dateReceived.value,
-      monthAssigned: monthAssigned.value,
-      yearAssigned: yearAssigned.value,
-      detailsText: selectedIncomeType.value?.requiresDetailsText ? detailsText.value : null,
-      targetEnvelopeId: targetEnvelopeId.value || null,
-    },
-  })
-  emit('saved')
+  if (!canSubmit.value || isSubmitting.value) return
+
+  errorMessage.value = ''
+  isSubmitting.value = true
+
+  try {
+    await $fetch('/api/incomes', {
+      method: 'POST',
+      body: {
+        incomeTypeId: incomeTypeId.value,
+        label: label.value,
+        amount: amount.value,
+        dateReceived: dateReceived.value,
+        monthAssigned: monthAssigned.value,
+        yearAssigned: yearAssigned.value,
+        detailsText: selectedIncomeType.value?.requiresDetailsText ? detailsText.value : null,
+        targetEnvelopeId: targetEnvelopeId.value || null,
+      },
+    })
+    emit('saved')
+  } catch {
+    errorMessage.value = "Impossible d'enregistrer l'entrée. Vérifiez les champs et réessayez."
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
@@ -74,6 +91,11 @@ async function submit() {
           <option v-for="(monthName, index) in monthNames" :key="monthName" :value="index + 1">{{ monthName }}</option>
         </select>
       </EntryFormRow>
+      <EntryFormRow label="Année">
+        <select v-model.number="yearAssigned" class="bg-transparent text-right font-bold text-ink">
+          <option v-for="year in yearOptions" :key="year" :value="year">{{ year }}</option>
+        </select>
+      </EntryFormRow>
       <EntryFormRow label="Diriger vers une enveloppe">
         <select v-model="targetEnvelopeId" class="bg-transparent text-right font-bold text-ink">
           <option value="">Aucune</option>
@@ -86,7 +108,9 @@ async function submit() {
 
     <NumericKeypad @digit="pressDigit" @comma="pressComma" @backspace="backspace" />
 
-    <button type="button" class="rounded-[18px] bg-ink py-[14px] text-center text-[14.5px] font-bold text-white" @click="submit">
+    <p v-if="errorMessage" class="text-center text-[12px] font-medium text-warn-ink">{{ errorMessage }}</p>
+
+    <button type="button" :disabled="!canSubmit || isSubmitting" class="rounded-[18px] bg-ink py-[14px] text-center text-[14.5px] font-bold text-white disabled:opacity-50" @click="submit">
       Enregistrer l'entrée
     </button>
   </div>

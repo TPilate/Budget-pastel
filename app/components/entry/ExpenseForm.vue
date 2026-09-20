@@ -32,20 +32,36 @@ const financedByOptions = [
 
 const reserveEnvelope = computed(() => envelopes.value.find((envelope: any) => envelope.kind === 'reserve'))
 
+const errorMessage = ref('')
+const isSubmitting = ref(false)
+
+const canSubmit = computed(() => amount.value > 0 && label.value.trim().length > 0 && categoryId.value.length > 0)
+
 async function submit() {
-  await $fetch('/api/expenses', {
-    method: 'POST',
-    body: {
-      date: date.value,
-      categoryId: categoryId.value,
-      label: label.value,
-      amount: amount.value,
-      accountId: financedBy.value === 'gift_received' ? null : (accountId.value || null),
-      envelopeId: financedBy.value === 'gift_received' ? (reserveEnvelope.value?.id ?? null) : (envelopeId.value || null),
-      financedBy: financedBy.value,
-    },
-  })
-  emit('saved')
+  if (!canSubmit.value || isSubmitting.value) return
+
+  errorMessage.value = ''
+  isSubmitting.value = true
+
+  try {
+    await $fetch('/api/expenses', {
+      method: 'POST',
+      body: {
+        date: date.value,
+        categoryId: categoryId.value,
+        label: label.value,
+        amount: amount.value,
+        accountId: financedBy.value === 'gift_received' ? null : (accountId.value || null),
+        envelopeId: financedBy.value === 'gift_received' ? (reserveEnvelope.value?.id ?? null) : (envelopeId.value || null),
+        financedBy: financedBy.value,
+      },
+    })
+    emit('saved')
+  } catch {
+    errorMessage.value = "Impossible d'enregistrer la sortie. Vérifiez les champs et réessayez."
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
@@ -91,7 +107,9 @@ async function submit() {
 
     <NumericKeypad @digit="pressDigit" @comma="pressComma" @backspace="backspace" />
 
-    <button type="button" class="rounded-[18px] bg-ink py-[14px] text-center text-[14.5px] font-bold text-white" @click="submit">
+    <p v-if="errorMessage" class="text-center text-[12px] font-medium text-warn-ink">{{ errorMessage }}</p>
+
+    <button type="button" :disabled="!canSubmit || isSubmitting" class="rounded-[18px] bg-ink py-[14px] text-center text-[14.5px] font-bold text-white disabled:opacity-50" @click="submit">
       Enregistrer la sortie
     </button>
   </div>

@@ -19,56 +19,83 @@ const newEnvelope = reactive({ name: '', emoji: '' })
 const newIncomeType = reactive({ name: '', emoji: '' })
 const newAccount = reactive({ name: '', emoji: '' })
 
+const errorMessage = ref('')
+
 async function addCategory() {
   if (!newCategory.name || !newCategory.emoji) return
-  await $fetch('/api/categories', {
-    method: 'POST',
-    body: { name: newCategory.name, emoji: newCategory.emoji, isFixed: false },
-  })
-  newCategory.name = ''
-  newCategory.emoji = ''
-  await loadAll()
+  errorMessage.value = ''
+  try {
+    await $fetch('/api/categories', {
+      method: 'POST',
+      body: { name: newCategory.name, emoji: newCategory.emoji, isFixed: false },
+    })
+    newCategory.name = ''
+    newCategory.emoji = ''
+    await loadAll()
+  } catch {
+    errorMessage.value = 'Une erreur est survenue. Réessayez.'
+  }
 }
 
 async function addEnvelope() {
   if (!newEnvelope.name || !newEnvelope.emoji) return
-  await $fetch('/api/envelopes', {
-    method: 'POST',
-    body: { name: newEnvelope.name, emoji: newEnvelope.emoji, kind: 'budget', defaultCeiling: 0 },
-  })
-  newEnvelope.name = ''
-  newEnvelope.emoji = ''
-  await loadAll()
+  errorMessage.value = ''
+  try {
+    await $fetch('/api/envelopes', {
+      method: 'POST',
+      body: { name: newEnvelope.name, emoji: newEnvelope.emoji, kind: 'budget', defaultCeiling: 0 },
+    })
+    newEnvelope.name = ''
+    newEnvelope.emoji = ''
+    await loadAll()
+  } catch {
+    errorMessage.value = 'Une erreur est survenue. Réessayez.'
+  }
 }
 
 async function addIncomeType() {
   if (!newIncomeType.name || !newIncomeType.emoji) return
-  await $fetch('/api/income-types', {
-    method: 'POST',
-    body: { name: newIncomeType.name, emoji: newIncomeType.emoji },
-  })
-  newIncomeType.name = ''
-  newIncomeType.emoji = ''
-  await loadAll()
+  errorMessage.value = ''
+  try {
+    await $fetch('/api/income-types', {
+      method: 'POST',
+      body: { name: newIncomeType.name, emoji: newIncomeType.emoji },
+    })
+    newIncomeType.name = ''
+    newIncomeType.emoji = ''
+    await loadAll()
+  } catch {
+    errorMessage.value = 'Une erreur est survenue. Réessayez.'
+  }
 }
 
 async function addAccount() {
   if (!newAccount.name || !newAccount.emoji) return
-  await $fetch('/api/accounts', {
-    method: 'POST',
-    body: { name: newAccount.name, emoji: newAccount.emoji },
-  })
-  newAccount.name = ''
-  newAccount.emoji = ''
-  await loadAll()
+  errorMessage.value = ''
+  try {
+    await $fetch('/api/accounts', {
+      method: 'POST',
+      body: { name: newAccount.name, emoji: newAccount.emoji },
+    })
+    newAccount.name = ''
+    newAccount.emoji = ''
+    await loadAll()
+  } catch {
+    errorMessage.value = 'Une erreur est survenue. Réessayez.'
+  }
 }
 
 async function archive(endpoint: string, id: string) {
-  await $fetch(`${endpoint}/${id}`, {
-    method: 'PATCH',
-    body: { archivedAt: new Date().toISOString() },
-  })
-  await loadAll()
+  errorMessage.value = ''
+  try {
+    await $fetch(`${endpoint}/${id}`, {
+      method: 'PATCH',
+      body: { archivedAt: new Date().toISOString() },
+    })
+    await loadAll()
+  } catch {
+    errorMessage.value = 'Une erreur est survenue. Réessayez.'
+  }
 }
 </script>
 
@@ -78,6 +105,7 @@ async function archive(endpoint: string, id: string) {
     <p class="mt-1 text-xs font-medium text-ink-muted">
       Modifié ici, disponible partout : saisie, budget mensuel, enveloppes.
     </p>
+    <p v-if="errorMessage" class="mt-2 text-xs font-medium text-warn-ink">{{ errorMessage }}</p>
 
     <section class="mt-4 rounded-[22px] bg-white p-4">
       <h2 class="text-[13.5px] font-extrabold text-ink">📂 Catégories</h2>

@@ -16,17 +16,39 @@ const fromEnvelopeId = ref(envelopes.value[0]?.id ?? '')
 const toEnvelopeId = ref(envelopes.value[1]?.id ?? '')
 const reason = ref('')
 
+const errorMessage = ref('')
+const isSubmitting = ref(false)
+
+const canSubmit = computed(() =>
+  amount.value > 0
+  && reason.value.trim().length > 0
+  && fromEnvelopeId.value.length > 0
+  && toEnvelopeId.value.length > 0
+  && fromEnvelopeId.value !== toEnvelopeId.value,
+)
+
 async function submit() {
-  await $fetch('/api/transfers', {
-    method: 'POST',
-    body: {
-      fromEnvelopeId: fromEnvelopeId.value,
-      toEnvelopeId: toEnvelopeId.value,
-      amount: amount.value,
-      reason: reason.value,
-    },
-  })
-  emit('saved')
+  if (!canSubmit.value || isSubmitting.value) return
+
+  errorMessage.value = ''
+  isSubmitting.value = true
+
+  try {
+    await $fetch('/api/transfers', {
+      method: 'POST',
+      body: {
+        fromEnvelopeId: fromEnvelopeId.value,
+        toEnvelopeId: toEnvelopeId.value,
+        amount: amount.value,
+        reason: reason.value,
+      },
+    })
+    emit('saved')
+  } catch {
+    errorMessage.value = 'Impossible de valider le transfert. Vérifiez les champs et réessayez.'
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
@@ -61,7 +83,9 @@ async function submit() {
 
     <NumericKeypad @digit="pressDigit" @comma="pressComma" @backspace="backspace" />
 
-    <button type="button" class="rounded-[18px] bg-ink py-[14px] text-center text-[14.5px] font-bold text-white" @click="submit">
+    <p v-if="errorMessage" class="text-center text-[12px] font-medium text-warn-ink">{{ errorMessage }}</p>
+
+    <button type="button" :disabled="!canSubmit || isSubmitting" class="rounded-[18px] bg-ink py-[14px] text-center text-[14.5px] font-bold text-white disabled:opacity-50" @click="submit">
       Valider le transfert
     </button>
   </div>
