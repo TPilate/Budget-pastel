@@ -16,6 +16,8 @@
   --color-warn-bar: #d3714f;
   --color-violet-bar: #b19ee8;
   --color-azure-bar: #86bde8;
+  --color-primary: #6c5fa8;
+  --color-primary-ink: #ffffff;
 }
 
 body {
