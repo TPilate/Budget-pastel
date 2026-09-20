@@ -100,7 +100,7 @@ async function archive(endpoint: string, id: string) {
 </script>
 
 <template>
-  <div class="min-h-screen bg-app-bg p-5 pb-28">
+  <div>
     <h1 class="text-xl font-extrabold text-ink">⚙️ Listes et paramètres</h1>
     <p class="mt-1 text-xs font-medium text-ink-muted">
       Modifié ici, disponible partout : saisie, budget mensuel, enveloppes.

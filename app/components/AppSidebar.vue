@@ -14,6 +14,7 @@ const navItems = [
 ]
 
 async function handleLogout() {
+  if (!confirm('Se déconnecter ?')) return
   await supabase.auth.signOut()
   await navigateTo('/login')
 }
