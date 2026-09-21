@@ -22,8 +22,10 @@ export async function getPrimaryReserveEnvelopeBalance(): Promise<ReserveEnvelop
 
   if (!reserveEnvelope) return null
 
-  const expenses = await db.select().from(expenseEntries).where(eq(expenseEntries.envelopeId, reserveEnvelope.id))
-  const incomeCredits = await db.select().from(incomeEntries).where(eq(incomeEntries.targetEnvelopeId, reserveEnvelope.id))
+  const [expenses, incomeCredits] = await Promise.all([
+    db.select().from(expenseEntries).where(eq(expenseEntries.envelopeId, reserveEnvelope.id)),
+    db.select().from(incomeEntries).where(eq(incomeEntries.targetEnvelopeId, reserveEnvelope.id)),
+  ])
 
   const expensesTotal = expenses.reduce((sum, row) => sum + Number(row.amount), 0)
   const incomeCreditsTotal = incomeCredits.reduce((sum, row) => sum + Number(row.amount), 0)
