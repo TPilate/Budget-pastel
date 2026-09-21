@@ -42,10 +42,11 @@ export default defineEventHandler(async (event) => {
   const salaryRows = incomeRows.filter((row) => row.incomeTypeId === salaryTypeId)
   const salaryReceived = salaryRows.reduce((sum, row) => sum + Number(row.amount), 0)
   const salaryExpected = salaryRows.reduce((sum, row) => sum + Number(row.expectedAmount ?? 0), 0)
+  const hasSalaryExpected = salaryRows.some((row) => row.expectedAmount != null && Number(row.expectedAmount) !== 0)
 
   const categoryById = new Map(categoryRows.map((category) => [category.id, category]))
   const fixedChargesTotal = expenseRows
-    .filter((row) => categoryById.get(row.categoryId)?.isFixed)
+    .filter((row) => categoryById.get(row.categoryId)?.isFixed && !row.envelopeId)
     .reduce((sum, row) => sum + Number(row.amount), 0)
   const variableChargesTotal = expenseRows
     .filter((row) => !categoryById.get(row.categoryId)?.isFixed && !row.envelopeId)
@@ -64,6 +65,13 @@ export default defineEventHandler(async (event) => {
     joursRestants,
   })
 
+  // Nothing in the app currently writes expectedAmount, so most months have no real
+  // figure to compare salaryReceived against — surface null instead of a false "vs prévu" figure.
+  const summaryResponse = {
+    ...summary,
+    salaryVsExpected: hasSalaryExpected ? summary.salaryVsExpected : null,
+  }
+
   const savingsByGoal = savingsGoalRows.map((goal) => ({
     id: goal.id,
     name: goal.name,
@@ -76,7 +84,7 @@ export default defineEventHandler(async (event) => {
     monthLabel: now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
     joursRestants,
     salaryReceived,
-    summary,
+    summary: summaryResponse,
     homeEnvelopes: envelopeLedgers.filter((envelope) => envelope.showOnHome),
     envelopesTotalCeiling: envelopeLedgers.reduce((sum, envelope) => sum + envelope.ceiling, 0),
     savingsGoals: savingsByGoal,

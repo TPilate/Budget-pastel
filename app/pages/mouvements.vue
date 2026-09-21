@@ -10,7 +10,7 @@ interface Movement {
   sign: 'negative' | 'positive' | 'neutral'
 }
 
-const { data } = await useFetch<Movement[]>('/api/movements', { key: 'movements-feed' })
+const { data, error } = await useFetch<Movement[]>('/api/movements', { key: 'movements-feed' })
 
 const activeFilter = ref<'all' | 'expense' | 'income' | 'transfer'>('all')
 const searchText = ref('')
@@ -98,7 +98,10 @@ function formatDate(isoDate: string) {
             </tr>
           </tbody>
         </table>
-        <p v-if="filteredMovements.length === 0" class="py-6 text-center text-[12.5px] font-medium text-ink-muted">
+        <p v-if="error" class="py-6 text-center text-[12.5px] font-semibold text-warn-ink">
+          Impossible de charger les mouvements.
+        </p>
+        <p v-else-if="filteredMovements.length === 0" class="py-6 text-center text-[12.5px] font-medium text-ink-muted">
           Aucun mouvement ce mois-ci.
         </p>
       </div>

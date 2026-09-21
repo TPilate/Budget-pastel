@@ -18,7 +18,7 @@ const modeOptions = [
   { value: 'transfer', label: '⇄ Transfert' },
 ]
 
-const { data: ceilingsData } = await useFetch<EnvelopeCeiling[]>('/api/envelopes/ceilings', { key: 'envelope-ceilings' })
+const { data: ceilingsData, error: ceilingsError } = await useFetch<EnvelopeCeiling[]>('/api/envelopes/ceilings', { key: 'envelope-ceilings' })
 const ceilingsById = computed(() => new Map((ceilingsData.value ?? []).map((envelope) => [envelope.id, envelope])))
 
 const draftAmount = ref(0)
@@ -98,5 +98,8 @@ function handleSaved() {
         <span class="font-bold text-ink">{{ formatEuro(line.before) }} → {{ formatEuro(line.after) }} {{ line.suffix }}</span>
       </div>
     </div>
+    <p v-else-if="ceilingsError" class="rounded-[16px] bg-app-bg p-3 text-[11px] font-semibold text-warn-ink">
+      Aperçu indisponible : impossible de charger les enveloppes.
+    </p>
   </div>
 </template>

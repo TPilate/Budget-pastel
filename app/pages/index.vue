@@ -29,7 +29,7 @@ interface DashboardSummary {
     totalSpent: number
     resteADepenser: number
     resteADepenserParJour: number
-    salaryVsExpected: number
+    salaryVsExpected: number | null
     usagePercent: number
     breakdown: {
       fixedCharges: { amount: number; percent: number }
@@ -47,10 +47,15 @@ interface DashboardSummary {
   recentMovements: Movement[]
 }
 
-const { data } = await useFetch<DashboardSummary>('/api/dashboard/summary', { key: 'dashboard-summary' })
+const { data, error } = await useFetch<DashboardSummary>('/api/dashboard/summary', { key: 'dashboard-summary' })
 
 function euro(value: number) {
   return `${value.toFixed(2).replace('.', ',')} €`
+}
+
+function salaryHint(salaryVsExpected: number | null) {
+  if (typeof salaryVsExpected !== 'number') return undefined
+  return `${salaryVsExpected >= 0 ? '+' : ''}${salaryVsExpected.toFixed(0)} € vs prévu`
 }
 
 function formatMovementAmount(movement: Movement) {
@@ -90,7 +95,7 @@ const donutSegments = computed(() => {
 
     <template v-if="data">
       <div class="grid grid-cols-4 gap-4">
-        <DashboardStatCard label="Salaire reçu" :value="euro(data.salaryReceived)" :hint="`${data.summary.salaryVsExpected >= 0 ? '+' : ''}${data.summary.salaryVsExpected.toFixed(0)} € vs prévu`" />
+        <DashboardStatCard label="Salaire reçu" :value="euro(data.salaryReceived)" :hint="salaryHint(data.summary.salaryVsExpected)" />
         <DashboardStatCard label="Épargne versée" :value="euro(data.savingsTotal)" />
         <DashboardStatCard label="Enveloppes" :value="euro(data.summary.breakdown.envelopes.amount)" :hint="`sur ${data.envelopesTotalCeiling.toFixed(0)} € de plafonds`" />
         <DashboardStatCard label="Reste à dépenser" :value="euro(data.summary.resteADepenser)" :hint="`soit ${data.summary.resteADepenserParJour.toFixed(0)} € / jour`" highlighted />
@@ -175,5 +180,8 @@ const donutSegments = computed(() => {
         </div>
       </div>
     </template>
+    <p v-else-if="error" class="rounded-[22px] bg-white p-5 text-[12.5px] font-semibold text-warn-ink">
+      Impossible de charger le tableau de bord.
+    </p>
   </div>
 </template>
