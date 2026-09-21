@@ -5,7 +5,7 @@ interface ReferenceItem {
   emoji: string
 }
 
-const emit = defineEmits<{ saved: [] }>()
+const emit = defineEmits<{ saved: []; 'amount-change': [number]; 'envelope-change': [string] }>()
 
 const categories = ref<ReferenceItem[]>([])
 const accounts = ref<ReferenceItem[]>([])
@@ -31,6 +31,9 @@ const financedByOptions = [
 ]
 
 const reserveEnvelope = computed(() => envelopes.value.find((envelope: any) => envelope.kind === 'reserve'))
+
+watch(amount, (value) => emit('amount-change', value))
+watch(envelopeId, (value) => emit('envelope-change', value))
 
 const errorMessage = ref('')
 const isSubmitting = ref(false)

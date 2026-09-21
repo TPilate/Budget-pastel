@@ -6,7 +6,7 @@ interface ReferenceItem {
   requiresDetailsText?: boolean
 }
 
-const emit = defineEmits<{ saved: [] }>()
+const emit = defineEmits<{ saved: []; 'amount-change': [number]; 'envelope-change': [string] }>()
 
 const incomeTypes = ref<ReferenceItem[]>([])
 const envelopes = ref<ReferenceItem[]>([])
@@ -28,6 +28,9 @@ const detailsText = ref('')
 const targetEnvelopeId = ref('')
 
 const selectedIncomeType = computed(() => incomeTypes.value.find((incomeType: any) => incomeType.id === incomeTypeId.value))
+
+watch(amount, (value) => emit('amount-change', value))
+watch(targetEnvelopeId, (value) => emit('envelope-change', value))
 
 const errorMessage = ref('')
 const isSubmitting = ref(false)
