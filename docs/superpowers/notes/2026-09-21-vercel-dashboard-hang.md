@@ -18,6 +18,17 @@ before the dashboard work) via a plain revert-by-new-commit — nothing was
 force-pushed or rewritten, every commit below is still in `git log` and
 individually re-appliable. The Mouvements page and everything before it works
 correctly in production. The Tableau de bord rebuild does not, for reasons
+
+**Update (same day, after the revert):** the revert also undid three fixes
+below (#4/#6/#7) that were real, independent wins — not part of the
+unresolved dashboard-summary mystery. Without them the app felt visibly
+stiff/laggy after login, because `ceilings.get.ts` (the sidebar widget,
+fetched on every single page load) was back to firing ~46 sequential queries
+per request with no region pinning. Re-applied region pinning (`vercel.json`),
+the `db.ts` connection tuning, and query-batched `ceilings.get.ts` on top of
+the reverted state in commit `f9d6745` — these do not touch
+`/api/dashboard/summary` (which doesn't exist post-revert) and are safe to
+keep regardless of when/whether the dashboard work is resumed.
 that were narrowed down significantly but never fully root-caused before the
 decision was made to stop debugging live and come back to it deliberately.
 
