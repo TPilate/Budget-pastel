@@ -11,59 +11,42 @@ export default defineEventHandler(async (event) => {
   const year = now.getFullYear()
   const month = now.getMonth() + 1
 
-  const budgetEnvelopes = await db
-    .select()
-    .from(envelopes)
-    .where(and(eq(envelopes.kind, 'budget'), isNull(envelopes.archivedAt)))
-    .orderBy(asc(envelopes.sortOrder))
-
-  const results = []
-
-  for (const envelope of budgetEnvelopes) {
-    const [allocation] = await db
+  // Fetches each table once for the month (not once per envelope) and groups in memory:
+  // a per-envelope loop here issues 5 queries PER envelope, which adds up fast even at
+  // low per-query latency (46 sequential round trips for 9 envelopes, fired on every
+  // page load via the sidebar widget).
+  const [budgetEnvelopes, allocations, allExpenses, allIncomeCredits, allTransfers] = await Promise.all([
+    db
+      .select()
+      .from(envelopes)
+      .where(and(eq(envelopes.kind, 'budget'), isNull(envelopes.archivedAt)))
+      .orderBy(asc(envelopes.sortOrder)),
+    db
       .select()
       .from(monthlyEnvelopeAllocations)
-      .where(and(
-        eq(monthlyEnvelopeAllocations.envelopeId, envelope.id),
-        eq(monthlyEnvelopeAllocations.year, year),
-        eq(monthlyEnvelopeAllocations.month, month),
-      ))
-
-    const expenses = await db
+      .where(and(eq(monthlyEnvelopeAllocations.year, year), eq(monthlyEnvelopeAllocations.month, month))),
+    db
       .select()
       .from(expenseEntries)
-      .where(and(
-        eq(expenseEntries.envelopeId, envelope.id),
-        eq(expenseEntries.yearAssigned, year),
-        eq(expenseEntries.monthAssigned, month),
-      ))
-
-    const incomeCredits = await db
+      .where(and(eq(expenseEntries.yearAssigned, year), eq(expenseEntries.monthAssigned, month))),
+    db
       .select()
       .from(incomeEntries)
-      .where(and(
-        eq(incomeEntries.targetEnvelopeId, envelope.id),
-        eq(incomeEntries.yearAssigned, year),
-        eq(incomeEntries.monthAssigned, month),
-      ))
-
-    const transfersIn = await db
+      .where(and(eq(incomeEntries.yearAssigned, year), eq(incomeEntries.monthAssigned, month))),
+    db
       .select()
       .from(transfers)
-      .where(and(
-        eq(transfers.toEnvelopeId, envelope.id),
-        eq(transfers.yearAssigned, year),
-        eq(transfers.monthAssigned, month),
-      ))
+      .where(and(eq(transfers.yearAssigned, year), eq(transfers.monthAssigned, month))),
+  ])
 
-    const transfersOut = await db
-      .select()
-      .from(transfers)
-      .where(and(
-        eq(transfers.fromEnvelopeId, envelope.id),
-        eq(transfers.yearAssigned, year),
-        eq(transfers.monthAssigned, month),
-      ))
+  const allocationByEnvelopeId = new Map(allocations.map((allocation) => [allocation.envelopeId, allocation]))
+
+  return budgetEnvelopes.map((envelope) => {
+    const allocation = allocationByEnvelopeId.get(envelope.id)
+    const expenses = allExpenses.filter((row) => row.envelopeId === envelope.id)
+    const incomeCredits = allIncomeCredits.filter((row) => row.targetEnvelopeId === envelope.id)
+    const transfersIn = allTransfers.filter((row) => row.toEnvelopeId === envelope.id)
+    const transfersOut = allTransfers.filter((row) => row.fromEnvelopeId === envelope.id)
 
     const ledger = computeEnvelopeLedger({
       defaultCeiling: Number(envelope.defaultCeiling ?? 0),
@@ -80,13 +63,11 @@ export default defineEventHandler(async (event) => {
       incomeCreditsTotal: incomeCredits.reduce((sum, row) => sum + Number(row.amount), 0),
     })
 
-    results.push({
+    return {
       id: envelope.id,
       name: envelope.name,
       emoji: envelope.emoji,
       ...ledger,
-    })
-  }
-
-  return results
+    }
+  })
 })
