@@ -5,7 +5,7 @@ interface ReferenceItem {
   emoji: string
 }
 
-const emit = defineEmits<{ saved: []; 'amount-change': [number]; 'from-envelope-change': [string]; 'to-envelope-change': [string] }>()
+const emit = defineEmits<{ saved: [] }>()
 
 const envelopes = ref<ReferenceItem[]>([])
 envelopes.value = await $fetch('/api/envelopes')
@@ -15,10 +15,6 @@ const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInp
 const fromEnvelopeId = ref(envelopes.value[0]?.id ?? '')
 const toEnvelopeId = ref(envelopes.value[1]?.id ?? '')
 const reason = ref('')
-
-watch(amount, (value) => emit('amount-change', value))
-watch(fromEnvelopeId, (value) => emit('from-envelope-change', value))
-watch(toEnvelopeId, (value) => emit('to-envelope-change', value))
 
 const errorMessage = ref('')
 const isSubmitting = ref(false)

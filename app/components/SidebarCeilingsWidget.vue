@@ -8,7 +8,7 @@ interface EnvelopeCeiling {
   remaining: number
 }
 
-const { data, error, pending } = await useFetch<EnvelopeCeiling[]>('/api/envelopes/ceilings', { key: 'envelope-ceilings' })
+const { data, error, pending } = await useFetch<EnvelopeCeiling[]>('/api/envelopes/ceilings')
 
 const envelopesList = computed(() => data.value ?? [])
 const topThree = computed(() => envelopesList.value.slice(0, 3))

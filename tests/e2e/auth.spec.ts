@@ -18,10 +18,10 @@ test('logs in with valid credentials and reaches the protected home page', async
   await page.getByRole('button', { name: 'Se connecter' }).click()
 
   await expect(page).toHaveURL('http://localhost:3000/')
-  await expect(page.getByRole('link', { name: 'Tableau de bord' })).toBeVisible()
+  await expect(page.getByText('Connecté')).toBeVisible()
 
   await page.reload()
 
   await expect(page).toHaveURL('http://localhost:3000/')
-  await expect(page.getByRole('link', { name: 'Tableau de bord' })).toBeVisible()
+  await expect(page.getByText('Connecté')).toBeVisible()
 })

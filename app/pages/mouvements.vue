@@ -10,7 +10,7 @@ interface Movement {
   sign: 'negative' | 'positive' | 'neutral'
 }
 
-const { data, error } = await useFetch<Movement[]>('/api/movements', { key: 'movements-feed' })
+const { data } = await useFetch<Movement[]>('/api/movements', { key: 'movements-feed' })
 
 const activeFilter = ref<'all' | 'expense' | 'income' | 'transfer'>('all')
 const searchText = ref('')
@@ -50,63 +50,56 @@ function formatDate(isoDate: string) {
 </script>
 
 <template>
-  <div class="grid grid-cols-[1fr_360px] gap-5">
-    <div class="flex flex-col gap-5">
-      <PageHeader title="Mouvements">
-        <template #context>
-          <div class="flex gap-1 rounded-[12px] bg-toggle-track p-1">
-            <button
-              v-for="option in filterOptions"
-              :key="option.value"
-              type="button"
-              class="rounded-[9px] px-3 py-1.5 text-[12.5px] font-bold"
-              :class="activeFilter === option.value ? 'bg-white text-ink' : 'text-ink-muted'"
-              @click="activeFilter = option.value as typeof activeFilter"
-            >
-              {{ option.label }}
-            </button>
-          </div>
-        </template>
-        <template #actions>
-          <input
-            v-model="searchText"
-            type="search"
-            placeholder="Rechercher un mouvement…"
-            class="rounded-[12px] border border-divider bg-white px-3 py-2 text-[12.5px]"
+  <div class="flex flex-col gap-5">
+    <PageHeader title="Mouvements">
+      <template #context>
+        <div class="flex gap-1 rounded-[12px] bg-toggle-track p-1">
+          <button
+            v-for="option in filterOptions"
+            :key="option.value"
+            type="button"
+            class="rounded-[9px] px-3 py-1.5 text-[12.5px] font-bold"
+            :class="activeFilter === option.value ? 'bg-white text-ink' : 'text-ink-muted'"
+            @click="activeFilter = option.value as typeof activeFilter"
           >
-        </template>
-      </PageHeader>
+            {{ option.label }}
+          </button>
+        </div>
+      </template>
+      <template #actions>
+        <input
+          v-model="searchText"
+          type="search"
+          placeholder="Rechercher un mouvement…"
+          class="rounded-[12px] border border-divider bg-white px-3 py-2 text-[12.5px]"
+        >
+      </template>
+    </PageHeader>
 
-      <div class="rounded-[22px] bg-white p-4">
-        <table class="w-full text-left text-[12.5px]">
-          <thead>
-            <tr class="text-[10.5px] font-bold uppercase tracking-wide text-ink-faint">
-              <th class="pb-2">Date</th>
-              <th class="pb-2">Libellé</th>
-              <th class="pb-2">Enveloppe</th>
-              <th class="pb-2">Origine</th>
-              <th class="pb-2 text-right">Montant</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="movement in filteredMovements" :key="movement.id" class="border-t border-divider">
-              <td class="py-2.5 text-ink-muted">{{ formatDate(movement.date) }}</td>
-              <td class="py-2.5 font-semibold text-ink">{{ movement.label }}</td>
-              <td class="py-2.5 text-ink-muted">{{ movement.envelopeLabel }}</td>
-              <td class="py-2.5 text-ink-muted">{{ movement.origin }}</td>
-              <td class="py-2.5 text-right font-bold" :class="amountColorClass(movement)">{{ formatAmount(movement) }}</td>
-            </tr>
-          </tbody>
-        </table>
-        <p v-if="error" class="py-6 text-center text-[12.5px] font-semibold text-warn-ink">
-          Impossible de charger les mouvements.
-        </p>
-        <p v-else-if="filteredMovements.length === 0" class="py-6 text-center text-[12.5px] font-medium text-ink-muted">
-          Aucun mouvement ce mois-ci.
-        </p>
-      </div>
+    <div class="rounded-[22px] bg-white p-4">
+      <table class="w-full text-left text-[12.5px]">
+        <thead>
+          <tr class="text-[10.5px] font-bold uppercase tracking-wide text-ink-faint">
+            <th class="pb-2">Date</th>
+            <th class="pb-2">Libellé</th>
+            <th class="pb-2">Enveloppe</th>
+            <th class="pb-2">Origine</th>
+            <th class="pb-2 text-right">Montant</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="movement in filteredMovements" :key="movement.id" class="border-t border-divider">
+            <td class="py-2.5 text-ink-muted">{{ formatDate(movement.date) }}</td>
+            <td class="py-2.5 font-semibold text-ink">{{ movement.label }}</td>
+            <td class="py-2.5 text-ink-muted">{{ movement.envelopeLabel }}</td>
+            <td class="py-2.5 text-ink-muted">{{ movement.origin }}</td>
+            <td class="py-2.5 text-right font-bold" :class="amountColorClass(movement)">{{ formatAmount(movement) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-if="filteredMovements.length === 0" class="py-6 text-center text-[12.5px] font-medium text-ink-muted">
+        Aucun mouvement ce mois-ci.
+      </p>
     </div>
-
-    <EntryPanel />
   </div>
 </template>
