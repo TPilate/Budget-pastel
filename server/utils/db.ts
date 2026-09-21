@@ -24,6 +24,21 @@ if (!connectionString) {
 // discarding the TCP handshake, as opposed to refusing it) hangs until some outer
 // platform ceiling gives up — on Vercel that surfaced as a 5-minute FUNCTION_INVOCATION_TIMEOUT
 // with no error at all. 10s means a real outage now fails fast with a clear error instead.
-const queryClient = postgres(connectionString, { prepare: false, max: 5, idle_timeout: 20, max_lifetime: 60 * 30, connect_timeout: 10 })
+// connect_timeout ONLY bounds the initial handshake, though — once a connection is open,
+// a QUERY sent on it can still hang forever with no response (observed against Supabase's
+// pooler: some established connections just never answer a query). A client-side timeout
+// (e.g. Promise.race) doesn't fix this either — it only stops *waiting*, it doesn't cancel
+// the query or free the connection, so the pool silently fills up with permanently-wedged
+// connections across repeated requests until nothing can get a connection at all. statement_timeout
+// is enforced by POSTGRES ITSELF: it actively cancels a query that runs this long and returns
+// an error, which properly frees the connection back to the pool instead of leaking it.
+const queryClient = postgres(connectionString, {
+  prepare: false,
+  max: 5,
+  idle_timeout: 20,
+  max_lifetime: 60 * 30,
+  connect_timeout: 10,
+  connection: { statement_timeout: 10000 },
+})
 
 export const db = drizzle(queryClient, { schema })
