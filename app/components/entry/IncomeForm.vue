@@ -11,8 +11,12 @@ const emit = defineEmits<{ saved: []; 'amount-change': [number]; 'envelope-chang
 const incomeTypes = ref<ReferenceItem[]>([])
 const envelopes = ref<ReferenceItem[]>([])
 
-incomeTypes.value = await $fetch('/api/income-types')
-envelopes.value = await $fetch('/api/envelopes')
+// useRequestFetch (not the bare $fetch) forwards the incoming SSR request's auth
+// cookies to this internal API call — a plain $fetch during server rendering doesn't,
+// so these authenticated routes would 401 whenever this form is mounted server-side.
+const requestFetch = useRequestFetch()
+incomeTypes.value = await requestFetch('/api/income-types')
+envelopes.value = await requestFetch('/api/envelopes')
 
 const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInput()
 

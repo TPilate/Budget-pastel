@@ -8,7 +8,11 @@ interface ReferenceItem {
 const emit = defineEmits<{ saved: []; 'amount-change': [number]; 'from-envelope-change': [string]; 'to-envelope-change': [string] }>()
 
 const envelopes = ref<ReferenceItem[]>([])
-envelopes.value = await $fetch('/api/envelopes')
+// useRequestFetch (not the bare $fetch) forwards the incoming SSR request's auth
+// cookies to this internal API call — a plain $fetch during server rendering doesn't,
+// so this authenticated route would 401 whenever this form is mounted server-side.
+const requestFetch = useRequestFetch()
+envelopes.value = await requestFetch('/api/envelopes')
 
 const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInput()
 
