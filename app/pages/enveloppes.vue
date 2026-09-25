@@ -19,8 +19,14 @@ interface ReserveEnvelopeBalance {
   expensesTotal: number
 }
 
-const { data: envelopes, error: envelopesError } = await useFetch<BudgetEnvelopeLedger[]>('/api/envelopes/ceilings', { key: 'envelope-ceilings' })
-const { data: reserves, error: reservesError } = await useFetch<ReserveEnvelopeBalance[]>('/api/envelopes/reserves', { key: 'reserve-envelopes' })
+const [{ data: envelopes, error: envelopesError }, { data: reserves, error: reservesError }] = await Promise.all([
+  useFetch<BudgetEnvelopeLedger[]>('/api/envelopes/ceilings', { key: 'envelope-ceilings' }),
+  useFetch<ReserveEnvelopeBalance[]>('/api/envelopes/reserves', { key: 'reserve-envelopes' }),
+])
+
+const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+const now = new Date()
+const currentMonthLabel = `${monthNames[now.getMonth()]} ${now.getFullYear()}`
 
 const totalCeiling = computed(() => (envelopes.value ?? []).reduce((sum, envelope) => sum + envelope.ceiling, 0))
 const totalNetSpent = computed(() => (envelopes.value ?? []).reduce((sum, envelope) => sum + envelope.netSpent, 0))
@@ -91,7 +97,7 @@ function formatDate(isoDate: string) {
   <div class="flex flex-col gap-5">
     <PageHeader title="Enveloppes">
       <template #context>
-        <span class="text-[12.5px] font-semibold text-ink-muted">Septembre 2026</span>
+        <span class="text-[12.5px] font-semibold text-ink-muted">{{ currentMonthLabel }}</span>
       </template>
       <template #actions>
         <NuxtLink to="/parametres" class="rounded-[12px] border border-divider bg-white px-4 py-2 text-[12.5px] font-bold text-ink">
@@ -176,7 +182,7 @@ function formatDate(isoDate: string) {
 
     <DetailDrawer v-if="selectedEnvelope" v-model:open="drawerOpen" :title="`${selectedEnvelope.emoji} ${selectedEnvelope.name}`">
       <div class="flex flex-col gap-4">
-        <p class="text-[11px] font-semibold text-ink-muted">Septembre 2026 · {{ journal.length }} mouvements</p>
+        <p class="text-[11px] font-semibold text-ink-muted">{{ currentMonthLabel }} · {{ journal.length }} mouvements</p>
 
         <div>
           <p class="text-[12px] font-bold text-ink-muted">Reste à dépenser</p>
