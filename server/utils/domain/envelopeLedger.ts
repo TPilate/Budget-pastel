@@ -30,3 +30,7 @@ export function computeEnvelopeLedger(inputs: EnvelopeLedgerInputs): EnvelopeLed
 
   return { ceiling, netSpent, remaining }
 }
+
+export function computeReserveBalance(incomeCreditsTotal: number, expensesTotal: number): number {
+  return incomeCreditsTotal - expensesTotal
+}
