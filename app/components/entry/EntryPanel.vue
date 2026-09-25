@@ -61,6 +61,10 @@ function handleSaved() {
   refreshNuxtData('movements-feed')
   refreshNuxtData('envelope-ceilings')
   draftAmount.value = 0
+  draftExpenseEnvelopeId.value = ''
+  draftIncomeEnvelopeId.value = ''
+  draftTransferFromId.value = ''
+  draftTransferToId.value = ''
   emit('saved')
 }
 </script>

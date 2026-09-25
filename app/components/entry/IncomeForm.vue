@@ -29,8 +29,8 @@ const targetEnvelopeId = ref('')
 
 const selectedIncomeType = computed(() => incomeTypes.value.find((incomeType: any) => incomeType.id === incomeTypeId.value))
 
-watch(amount, (value) => emit('amount-change', value))
-watch(targetEnvelopeId, (value) => emit('envelope-change', value))
+watch(amount, (value) => emit('amount-change', value), { immediate: true })
+watch(targetEnvelopeId, (value) => emit('envelope-change', value), { immediate: true })
 
 const errorMessage = ref('')
 const isSubmitting = ref(false)

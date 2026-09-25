@@ -32,8 +32,8 @@ const financedByOptions = [
 
 const reserveEnvelope = computed(() => envelopes.value.find((envelope: any) => envelope.kind === 'reserve'))
 
-watch(amount, (value) => emit('amount-change', value))
-watch(envelopeId, (value) => emit('envelope-change', value))
+watch(amount, (value) => emit('amount-change', value), { immediate: true })
+watch(envelopeId, (value) => emit('envelope-change', value), { immediate: true })
 
 const errorMessage = ref('')
 const isSubmitting = ref(false)

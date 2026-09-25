@@ -16,9 +16,9 @@ const fromEnvelopeId = ref(envelopes.value[0]?.id ?? '')
 const toEnvelopeId = ref(envelopes.value[1]?.id ?? '')
 const reason = ref('')
 
-watch(amount, (value) => emit('amount-change', value))
-watch(fromEnvelopeId, (value) => emit('from-envelope-change', value))
-watch(toEnvelopeId, (value) => emit('to-envelope-change', value))
+watch(amount, (value) => emit('amount-change', value), { immediate: true })
+watch(fromEnvelopeId, (value) => emit('from-envelope-change', value), { immediate: true })
+watch(toEnvelopeId, (value) => emit('to-envelope-change', value), { immediate: true })
 
 const errorMessage = ref('')
 const isSubmitting = ref(false)
