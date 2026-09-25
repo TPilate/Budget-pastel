@@ -31,4 +31,15 @@ describe('requireUser', () => {
 
     await expect(requireUser({} as any)).rejects.toMatchObject({ statusCode: 401 })
   })
+
+  it('throws a 503 instead of hanging forever when the auth check never resolves', async () => {
+    vi.useFakeTimers()
+    getUserMock.mockReturnValue(new Promise(() => {})) // never resolves
+
+    const pending = expect(requireUser({} as any)).rejects.toMatchObject({ statusCode: 503 })
+    await vi.advanceTimersByTimeAsync(8000)
+    await pending
+
+    vi.useRealTimers()
+  })
 })
