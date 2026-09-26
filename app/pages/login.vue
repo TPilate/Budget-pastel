@@ -1,15 +1,31 @@
 <script setup lang="ts">
 definePageMeta({ layout: false })
 
-const { error: sessionCheckError } = await useFetch('/api/health')
-if (!sessionCheckError.value) {
-  await navigateTo('/')
-}
+// No top-level await here on purpose. This page used to start with
+// `await useFetch('/api/health')` to bounce already-signed-in visitors to '/', which made
+// it an async component wrapped in <Suspense>: hydration could not finish until that auth
+// round-trip resolved (~600ms locally, more on a slow connection). For that whole window
+// the server-rendered form looked interactive but was not, and two things went wrong —
+// a click performed a native form GET that submitted nothing, and anything typed was
+// wiped when hydration finally patched the inputs to match these empty refs.
+//
+// The signed-in redirect now lives in app/middleware/auth.global.ts, which runs before
+// this component renders. That keeps the behaviour, removes the Suspense boundary, and
+// lets the page hydrate immediately.
 
 const email = ref('')
 const password = ref('')
 const errorMessage = ref('')
 const isSubmitting = ref(false)
+
+// Hydration is fast now, but it is never instant, and correctness should not depend on
+// how quickly it lands. The form stays disabled until mounted so nothing can be typed
+// into or submitted from markup Vue has not taken over yet. Disabling the only submit
+// button also blocks the browser's implicit submission, so Enter cannot slip through.
+const isHydrated = ref(false)
+onMounted(() => {
+  isHydrated.value = true
+})
 
 const supabase = useSupabaseClient()
 
@@ -45,7 +61,8 @@ async function handleSubmit() {
           v-model="email"
           type="email"
           required
-          class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
+          :disabled="!isHydrated"
+          class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 disabled:bg-gray-50"
         >
       </div>
 
@@ -56,7 +73,8 @@ async function handleSubmit() {
           v-model="password"
           type="password"
           required
-          class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2"
+          :disabled="!isHydrated"
+          class="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 disabled:bg-gray-50"
         >
       </div>
 
@@ -64,10 +82,10 @@ async function handleSubmit() {
 
       <button
         type="submit"
-        :disabled="isSubmitting"
+        :disabled="isSubmitting || !isHydrated"
         class="w-full rounded-lg bg-orange-500 px-4 py-2 font-medium text-white disabled:opacity-50"
       >
-        Se connecter
+        {{ isSubmitting ? 'Connexion…' : 'Se connecter' }}
       </button>
     </form>
   </div>
