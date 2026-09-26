@@ -11,6 +11,11 @@ import type { Movement } from './domain/movementsFeed'
 //
 // It also replaces six flat selects joined with JS Maps by three requests whose
 // joins Postgres resolves via embedded resources.
+//
+// The month feed and a single envelope's journal are the same query at different
+// scopes, so they share one implementation. Previously envelopeJournalQuery.ts held
+// a verbatim copy of the mapping below, which meant two places to keep in sync with
+// the PostgREST row shape.
 
 // `categories`/`envelopes`/`accounts` resolve unambiguously: expense_entries has
 // exactly one foreign key to each.
@@ -57,17 +62,43 @@ function assertOk(table: string, error: { message: string } | null) {
   })
 }
 
-export async function fetchMovements(event: H3Event, year: number, month: number): Promise<Movement[]> {
+/**
+ * Fetches one month's movements, optionally narrowed to a single envelope.
+ *
+ * With `envelopeId`, the scope is that envelope's journal: expenses charged to it,
+ * income credited to it, and transfers on either side of it. Without, it is the
+ * whole month's feed.
+ */
+async function fetchFeed(
+  event: H3Event,
+  year: number,
+  month: number,
+  envelopeId?: string,
+): Promise<Movement[]> {
   const supabase = createSupabaseServerClient(event)
   const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
 
+  let expenseQuery = supabase.from('expense_entries').select(EXPENSE_SELECT)
+    .eq('year_assigned', year).eq('month_assigned', month)
+  let incomeQuery = supabase.from('income_entries').select(INCOME_SELECT)
+    .eq('year_assigned', year).eq('month_assigned', month)
+  let transferQuery = supabase.from('transfers').select(TRANSFER_SELECT)
+    .eq('year_assigned', year).eq('month_assigned', month)
+
+  if (envelopeId) {
+    expenseQuery = expenseQuery.eq('envelope_id', envelopeId)
+    incomeQuery = incomeQuery.eq('target_envelope_id', envelopeId)
+    // A transfer belongs to this envelope's journal whether it left or arrived, so
+    // both foreign keys are matched. `or` takes raw PostgREST filter syntax.
+    transferQuery = transferQuery.or(
+      `from_envelope_id.eq.${envelopeId},to_envelope_id.eq.${envelopeId}`,
+    )
+  }
+
   const [expenseRes, incomeRes, transferRes] = await Promise.all([
-    supabase.from('expense_entries').select(EXPENSE_SELECT)
-      .eq('year_assigned', year).eq('month_assigned', month).abortSignal(signal),
-    supabase.from('income_entries').select(INCOME_SELECT)
-      .eq('year_assigned', year).eq('month_assigned', month).abortSignal(signal),
-    supabase.from('transfers').select(TRANSFER_SELECT)
-      .eq('year_assigned', year).eq('month_assigned', month).abortSignal(signal),
+    expenseQuery.abortSignal(signal),
+    incomeQuery.abortSignal(signal),
+    transferQuery.abortSignal(signal),
   ])
 
   assertOk('expense_entries', expenseRes.error)
@@ -116,4 +147,19 @@ export async function fetchMovements(event: H3Event, year: number, month: number
   }))
 
   return buildMovementsFeed({ expenses, incomes, transfers: transferMovements })
+}
+
+/** Every movement assigned to the given month. */
+export function fetchMovements(event: H3Event, year: number, month: number): Promise<Movement[]> {
+  return fetchFeed(event, year, month)
+}
+
+/** One envelope's movements for the given month. */
+export function fetchEnvelopeJournal(
+  event: H3Event,
+  envelopeId: string,
+  year: number,
+  month: number,
+): Promise<Movement[]> {
+  return fetchFeed(event, year, month, envelopeId)
 }

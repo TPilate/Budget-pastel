@@ -17,6 +17,10 @@ const mocks = vi.hoisted(() => {
 
   const selectCalls: Record<string, string> = {}
   const abortSignals: AbortSignal[] = []
+  // Records the filters each table was narrowed by, so the journal's scoping can be
+  // asserted without a live PostgREST.
+  const eqCalls: Record<string, [string, unknown][]> = {}
+  const orCalls: Record<string, string[]> = {}
 
   function makeClient() {
     return {
@@ -30,7 +34,14 @@ const mocks = vi.hoisted(() => {
           // Every query filters on year_assigned then month_assigned, then bounds
           // itself with an abort signal; the builder stays chainable and awaitable
           // at each step, as PostgREST's does.
-          eq: () => builder,
+          eq: (column: string, value: unknown) => {
+            (eqCalls[table] ??= []).push([column, value])
+            return builder
+          },
+          or: (filter: string) => {
+            (orCalls[table] ??= []).push(filter)
+            return builder
+          },
           abortSignal: (signal: AbortSignal) => {
             abortSignals.push(signal)
             return builder
@@ -42,14 +53,14 @@ const mocks = vi.hoisted(() => {
     }
   }
 
-  return { responseByTable, selectCalls, abortSignals, makeClient }
+  return { responseByTable, selectCalls, abortSignals, eqCalls, orCalls, makeClient }
 })
 
 vi.mock('../../../../server/utils/supabase', () => ({
   createSupabaseServerClient: () => mocks.makeClient(),
 }))
 
-import { fetchMovements } from '../../../../server/utils/movementsQuery'
+import { fetchMovements, fetchEnvelopeJournal } from '../../../../server/utils/movementsQuery'
 
 function fakeEvent() {
   return { context: {} } as any
@@ -60,6 +71,8 @@ function reset() {
   mocks.responseByTable.income_entries = { data: [], error: null }
   mocks.responseByTable.transfers = { data: [], error: null }
   mocks.abortSignals.length = 0
+  for (const key of Object.keys(mocks.eqCalls)) delete mocks.eqCalls[key]
+  for (const key of Object.keys(mocks.orCalls)) delete mocks.orCalls[key]
 }
 
 describe('fetchMovements (Supabase Data API)', () => {
@@ -199,5 +212,72 @@ describe('fetchMovements (Supabase Data API)', () => {
     // A silent empty array here would look like "no transfers this month" — the
     // exact class of bug that hides an RLS misconfiguration.
     await expect(fetchMovements(fakeEvent(), 2026, 9)).rejects.toThrow(/transfers/)
+  })
+
+  it('scopes the month feed by year and month only', async () => {
+    await fetchMovements(fakeEvent(), 2026, 9)
+
+    // No envelope narrowing: the feed must include expenses with no envelope at all.
+    expect(mocks.eqCalls.expense_entries).toEqual([['year_assigned', 2026], ['month_assigned', 9]])
+    expect(mocks.orCalls.transfers).toBeUndefined()
+  })
+})
+
+describe('fetchEnvelopeJournal (Supabase Data API)', () => {
+  beforeEach(reset)
+
+  it('narrows each table to the envelope, matching transfers on either side', async () => {
+    await fetchEnvelopeJournal(fakeEvent(), 'env-7', 2026, 9)
+
+    expect(mocks.eqCalls.expense_entries).toEqual([
+      ['year_assigned', 2026], ['month_assigned', 9], ['envelope_id', 'env-7'],
+    ])
+    // Income reaches the envelope through target_envelope_id, not envelope_id.
+    expect(mocks.eqCalls.income_entries).toEqual([
+      ['year_assigned', 2026], ['month_assigned', 9], ['target_envelope_id', 'env-7'],
+    ])
+    // A transfer belongs to the journal whether it left or arrived, so filtering on
+    // one side only — the easy mistake here — would hide half the journal.
+    expect(mocks.eqCalls.transfers).toEqual([['year_assigned', 2026], ['month_assigned', 9]])
+    expect(mocks.orCalls.transfers).toEqual([
+      'from_envelope_id.eq.env-7,to_envelope_id.eq.env-7',
+    ])
+  })
+
+  it('maps rows through the same shape as the month feed', async () => {
+    mocks.responseByTable.expense_entries = {
+      data: [{
+        id: 'j1',
+        date: '2026-09-12',
+        label: 'Cinéma',
+        amount: 24,
+        financed_by: 'budget',
+        categories: { name: 'Loisirs', emoji: '🎬', is_fixed: false },
+        envelopes: { name: 'Loisirs', emoji: '🎉' },
+        accounts: { name: 'Compte courant' },
+      }],
+      error: null,
+    }
+
+    const [movement] = await fetchEnvelopeJournal(fakeEvent(), 'env-7', 2026, 9)
+
+    expect(movement).toMatchObject({
+      id: 'j1',
+      type: 'expense',
+      label: 'Cinéma',
+      envelopeLabel: '🎉 Loisirs',
+      amount: -24,
+      sign: 'negative',
+    })
+  })
+
+  it('bounds its requests and surfaces errors, like the month feed', async () => {
+    mocks.responseByTable.income_entries = {
+      data: null,
+      error: { message: 'permission denied for table income_entries' },
+    }
+
+    await expect(fetchEnvelopeJournal(fakeEvent(), 'env-7', 2026, 9))
+      .rejects.toThrow(/income_entries/)
   })
 })
