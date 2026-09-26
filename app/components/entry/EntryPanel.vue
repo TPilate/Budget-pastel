@@ -20,8 +20,37 @@ const modeOptions = [
   { value: 'transfer', label: '⇄ Transfert' },
 ]
 
-const { data: ceilingsData, error: ceilingsError } = await useFetch<EnvelopeCeiling[]>('/api/envelopes/ceilings', { key: 'envelope-ceilings' })
+interface ReferenceItem {
+  id: string
+  name: string
+  emoji: string
+  requiresDetailsText?: boolean
+}
+
+interface EntryReferenceData {
+  categories: ReferenceItem[]
+  accounts: ReferenceItem[]
+  envelopes: ReferenceItem[]
+  incomeTypes: ReferenceItem[]
+}
+
+// Both fetched here, once, and the reference data is handed down to whichever form is
+// active. Previously each form fetched its own lists on mount, so a page render paid for
+// several extra auth round-trips and refetched everything on every tab switch.
+const [
+  { data: ceilingsData, error: ceilingsError },
+  { data: referenceData, error: referenceError },
+] = await Promise.all([
+  useFetch<EnvelopeCeiling[]>('/api/envelopes/ceilings', { key: 'envelope-ceilings' }),
+  useFetch<EntryReferenceData>('/api/entry-reference-data', { key: 'entry-reference-data' }),
+])
+
 const ceilingsById = computed(() => new Map((ceilingsData.value ?? []).map((envelope) => [envelope.id, envelope])))
+
+const categories = computed(() => referenceData.value?.categories ?? [])
+const accounts = computed(() => referenceData.value?.accounts ?? [])
+const envelopes = computed(() => referenceData.value?.envelopes ?? [])
+const incomeTypes = computed(() => referenceData.value?.incomeTypes ?? [])
 
 const draftAmount = ref(0)
 const draftExpenseEnvelopeId = ref('')
@@ -77,25 +106,36 @@ function handleSaved() {
 
     <SegmentedToggle :options="modeOptions" :model-value="mode" @update:model-value="mode = $event as typeof mode" />
 
-    <ExpenseForm
-      v-if="mode === 'expense'"
-      @saved="handleSaved"
-      @amount-change="draftAmount = $event"
-      @envelope-change="draftExpenseEnvelopeId = $event"
-    />
-    <IncomeForm
-      v-else-if="mode === 'income'"
-      @saved="handleSaved"
-      @amount-change="draftAmount = $event"
-      @envelope-change="draftIncomeEnvelopeId = $event"
-    />
-    <TransferForm
-      v-else
-      @saved="handleSaved"
-      @amount-change="draftAmount = $event"
-      @from-envelope-change="draftTransferFromId = $event"
-      @to-envelope-change="draftTransferToId = $event"
-    />
+    <p v-if="referenceError" class="rounded-[16px] bg-app-bg p-3 text-[11px] font-semibold text-warn-ink">
+      Impossible de charger le formulaire de saisie.
+    </p>
+    <template v-else>
+      <ExpenseForm
+        v-if="mode === 'expense'"
+        :categories="categories"
+        :accounts="accounts"
+        :envelopes="envelopes"
+        @saved="handleSaved"
+        @amount-change="draftAmount = $event"
+        @envelope-change="draftExpenseEnvelopeId = $event"
+      />
+      <IncomeForm
+        v-else-if="mode === 'income'"
+        :income-types="incomeTypes"
+        :envelopes="envelopes"
+        @saved="handleSaved"
+        @amount-change="draftAmount = $event"
+        @envelope-change="draftIncomeEnvelopeId = $event"
+      />
+      <TransferForm
+        v-else
+        :envelopes="envelopes"
+        @saved="handleSaved"
+        @amount-change="draftAmount = $event"
+        @from-envelope-change="draftTransferFromId = $event"
+        @to-envelope-change="draftTransferToId = $event"
+      />
+    </template>
 
     <p v-if="ceilingsError" class="rounded-[16px] bg-app-bg p-3 text-[11px] font-semibold text-warn-ink">
       Aperçu indisponible — impossible de charger les plafonds des enveloppes.

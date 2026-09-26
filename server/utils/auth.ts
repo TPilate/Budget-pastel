@@ -21,6 +21,12 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 export async function requireUser(event: H3Event): Promise<AuthenticatedUser> {
+  // Each auth check is an HTTPS round-trip to Supabase, so never pay for it twice within
+  // one request. (Nested internal fetches are separate events and still pay their own —
+  // the real fix for that is not fanning out into many endpoints per page render.)
+  const cached = event.context.authenticatedUser as AuthenticatedUser | undefined
+  if (cached) return cached
+
   const supabase = createSupabaseServerClient(event)
 
   let data: Awaited<ReturnType<typeof supabase.auth.getUser>>['data']
@@ -35,5 +41,7 @@ export async function requireUser(event: H3Event): Promise<AuthenticatedUser> {
     throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
   }
 
-  return { id: data.user.id, email: data.user.email ?? null }
+  const user = { id: data.user.id, email: data.user.email ?? null }
+  event.context.authenticatedUser = user
+  return user
 }

@@ -7,12 +7,12 @@ interface ReferenceItem {
 
 const emit = defineEmits<{ saved: []; 'amount-change': [number]; 'from-envelope-change': [string]; 'to-envelope-change': [string] }>()
 
-const envelopes = ref<ReferenceItem[]>([])
-// useRequestFetch (not the bare $fetch) forwards the incoming SSR request's auth
-// cookies to this internal API call — a plain $fetch during server rendering doesn't,
-// so this authenticated route would 401 whenever this form is mounted server-side.
-const requestFetch = useRequestFetch()
-envelopes.value = await requestFetch('/api/envelopes')
+// Reference data is fetched once by EntryPanel and passed down, rather than each form
+// fetching its own: every endpoint pays for its own auth round-trip to Supabase, so
+// per-form fetching made a single page render cost several extra round-trips.
+const props = defineProps<{ envelopes: ReferenceItem[] }>()
+
+const envelopes = computed(() => props.envelopes)
 
 const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInput()
 
