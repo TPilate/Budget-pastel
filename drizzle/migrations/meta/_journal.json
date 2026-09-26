@@ -22,6 +22,13 @@
       "when": 1789835431986,
       "tag": "0002_enable_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790456107365,
+      "tag": "0003_white_rhodey",
+      "breakpoints": true
     }
   ]
 }

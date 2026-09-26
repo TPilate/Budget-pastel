@@ -1,5 +1,6 @@
 import { pgTable, uuid, text, numeric, timestamp } from 'drizzle-orm/pg-core'
 import { wishlistPriorityEnum } from './enums'
+import { envelopes } from './reference'
 
 export const wishlistItems = pgTable('wishlist_items', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -9,4 +10,5 @@ export const wishlistItems = pgTable('wishlist_items', {
   priority: wishlistPriorityEnum('priority').notNull(),
   note: text('note'),
   purchasedAt: timestamp('purchased_at', { withTimezone: true }),
+  envelopeId: uuid('envelope_id').references(() => envelopes.id),
 })

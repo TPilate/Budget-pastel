@@ -40,3 +40,20 @@ describe('drizzle schema', () => {
     ]))
   })
 })
+
+import { wishlistItems, accounts } from '../../drizzle/schema'
+
+describe('milestone 6 schema additions', () => {
+  it('links a wishlist item to the envelope that would fund it', () => {
+    expect(wishlistItems.envelopeId).toBeDefined()
+    expect(wishlistItems.envelopeId.notNull).toBe(false)
+  })
+
+  it('distinguishes spending accounts from savings accounts', () => {
+    // 'Solde bancaire' is labelled "compte courant seul" in the design, so the
+    // KPI needs a way to exclude savings vehicles.
+    expect(accounts.kind).toBeDefined()
+    expect(accounts.kind.notNull).toBe(true)
+    expect(accounts.kind.enumValues).toEqual(['courant', 'epargne'])
+  })
+})

@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, boolean, numeric, integer, timestamp } from 'drizzle-orm/pg-core'
-import { envelopeKindEnum, fiftyThirtyTwentyBucketEnum } from './enums'
+import { envelopeKindEnum, fiftyThirtyTwentyBucketEnum, accountKindEnum } from './enums'
 
 export const categories = pgTable('categories', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -42,6 +42,7 @@ export const accounts = pgTable('accounts', {
   currentBalance: numeric('current_balance', { precision: 10, scale: 2 }).notNull().default('0'),
   sortOrder: integer('sort_order').notNull().default(0),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
+  kind: accountKindEnum('kind').notNull().default('courant'),
 })
 
 export const savingsGoals = pgTable('savings_goals', {
