@@ -1,4 +1,5 @@
 import { requireUser } from '../utils/auth'
+import { withDbTimeout } from '../utils/db'
 import { listActiveRows } from '../utils/referenceCrud'
 import { categories, accounts, envelopes, incomeTypes } from '../../drizzle/schema'
 
@@ -10,12 +11,12 @@ import { categories, accounts, envelopes, incomeTypes } from '../../drizzle/sche
 export default defineEventHandler(async (event) => {
   await requireUser(event)
 
-  const [categoryRows, accountRows, envelopeRows, incomeTypeRows] = await Promise.all([
+  const [categoryRows, accountRows, envelopeRows, incomeTypeRows] = await withDbTimeout(Promise.all([
     listActiveRows(categories),
     listActiveRows(accounts),
     listActiveRows(envelopes),
     listActiveRows(incomeTypes),
-  ])
+  ]))
 
   return {
     categories: categoryRows,

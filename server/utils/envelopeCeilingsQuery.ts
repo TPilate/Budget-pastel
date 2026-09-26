@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull } from 'drizzle-orm'
-import { db } from './db'
+import { db, withDbTimeout } from './db'
 import { envelopes, monthlyEnvelopeAllocations, expenseEntries, incomeEntries, transfers } from '../../drizzle/schema'
 import { computeEnvelopeLedger } from './domain/envelopeLedger'
 import { deriveEnvelopeSubtitle } from './domain/envelopeSubtitle'
@@ -18,7 +18,7 @@ export interface BudgetEnvelopeLedger {
 export async function listBudgetEnvelopeLedgers(year: number, month: number): Promise<BudgetEnvelopeLedger[]> {
   // One query per table for the whole month, not per envelope — see this plan's Global
   // Constraints for why. Everything below groups the results in memory instead.
-  const [budgetEnvelopes, allocations, allExpenses, allIncomeCredits, allTransfers] = await Promise.all([
+  const [budgetEnvelopes, allocations, allExpenses, allIncomeCredits, allTransfers] = await withDbTimeout(Promise.all([
     db
       .select()
       .from(envelopes)
@@ -40,7 +40,7 @@ export async function listBudgetEnvelopeLedgers(year: number, month: number): Pr
       .select()
       .from(transfers)
       .where(and(eq(transfers.yearAssigned, year), eq(transfers.monthAssigned, month))),
-  ])
+  ]))
 
   const allocationByEnvelopeId = new Map(allocations.map((allocation) => [allocation.envelopeId, allocation]))
 

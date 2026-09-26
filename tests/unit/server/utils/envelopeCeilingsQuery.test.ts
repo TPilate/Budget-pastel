@@ -52,7 +52,12 @@ const mocks = vi.hoisted(() => {
 })
 
 vi.mock('../../../../drizzle/schema', () => mocks.tables)
-vi.mock('../../../../server/utils/db', () => ({ db: mocks.chain }))
+// withDbTimeout only bounds how long we wait for a pool slot; it changes no results, so
+// the mock passes the promise straight through.
+vi.mock('../../../../server/utils/db', () => ({
+  db: mocks.chain,
+  withDbTimeout: <T>(promise: Promise<T>) => promise,
+}))
 
 import { listBudgetEnvelopeLedgers } from '../../../../server/utils/envelopeCeilingsQuery'
 

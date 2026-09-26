@@ -1,5 +1,5 @@
 import { and, asc, eq, isNull } from 'drizzle-orm'
-import { db } from './db'
+import { db, withDbTimeout } from './db'
 import { envelopes, expenseEntries, incomeEntries } from '../../drizzle/schema'
 import { computeReserveBalance } from './domain/envelopeLedger'
 
@@ -21,10 +21,10 @@ export async function listReserveEnvelopeBalances(): Promise<ReserveEnvelopeBala
 
   if (reserveEnvelopes.length === 0) return []
 
-  const [allExpenses, allIncomeCredits] = await Promise.all([
+  const [allExpenses, allIncomeCredits] = await withDbTimeout(Promise.all([
     db.select().from(expenseEntries),
     db.select().from(incomeEntries),
-  ])
+  ]))
 
   return reserveEnvelopes.map((envelope) => {
     const expenses = allExpenses.filter((row) => row.envelopeId === envelope.id)

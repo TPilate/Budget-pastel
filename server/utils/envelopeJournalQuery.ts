@@ -1,11 +1,11 @@
 import { and, eq, or } from 'drizzle-orm'
-import { db } from './db'
+import { db, withDbTimeout } from './db'
 import { expenseEntries, incomeEntries, transfers, categories, accounts, envelopes } from '../../drizzle/schema'
 import { buildMovementsFeed } from './domain/movementsFeed'
 import type { Movement } from './domain/movementsFeed'
 
 export async function fetchEnvelopeJournal(envelopeId: string, year: number, month: number): Promise<Movement[]> {
-  const [expenseRows, incomeRows, transferRows, categoryRows, accountRows, envelopeRows] = await Promise.all([
+  const [expenseRows, incomeRows, transferRows, categoryRows, accountRows, envelopeRows] = await withDbTimeout(Promise.all([
     db
       .select()
       .from(expenseEntries)
@@ -33,7 +33,7 @@ export async function fetchEnvelopeJournal(envelopeId: string, year: number, mon
     db.select().from(categories),
     db.select().from(accounts),
     db.select().from(envelopes),
-  ])
+  ]))
 
   const categoryById = new Map(categoryRows.map((row) => [row.id, row]))
   const accountById = new Map(accountRows.map((row) => [row.id, row]))
