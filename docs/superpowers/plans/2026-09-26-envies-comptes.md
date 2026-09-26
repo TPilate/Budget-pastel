@@ -244,21 +244,25 @@ describe('summariseWishlist', () => {
 })
 
 describe('sortWishlist', () => {
+  // Canapé is the discriminating fixture: it is the most expensive item but the
+  // lowest priority, so the two modes MUST produce different orders. Without an
+  // item like it, both assertions pass even if `mode` is ignored entirely.
   const items = [
     { label: 'Sac de sport', price: 75, priority: 'moyenne' as const },
     { label: 'Bottines', price: 120, priority: 'haute' as const },
     { label: 'Diffuseur', price: 59, priority: 'moyenne' as const },
     { label: 'Cours de poterie', price: 180, priority: 'haute' as const },
+    { label: 'Canapé', price: 850, priority: 'basse' as const },
   ]
 
   it('orders by priority, then price descending', () => {
     expect(sortWishlist(items, 'priority').map((i) => i.label))
-      .toEqual(['Cours de poterie', 'Bottines', 'Sac de sport', 'Diffuseur'])
+      .toEqual(['Cours de poterie', 'Bottines', 'Sac de sport', 'Diffuseur', 'Canapé'])
   })
 
-  it('orders by price descending when asked', () => {
+  it('orders by price descending when asked, ignoring priority', () => {
     expect(sortWishlist(items, 'price').map((i) => i.label))
-      .toEqual(['Cours de poterie', 'Bottines', 'Sac de sport', 'Diffuseur'])
+      .toEqual(['Canapé', 'Cours de poterie', 'Bottines', 'Sac de sport', 'Diffuseur'])
   })
 
   it('breaks ties on label so order never wobbles between renders', () => {
