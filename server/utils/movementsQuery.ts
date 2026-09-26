@@ -1,47 +1,104 @@
-import { and, eq } from 'drizzle-orm'
-import { db, withDbTimeout } from './db'
-import { expenseEntries, incomeEntries, transfers, categories, accounts, envelopes } from '../../drizzle/schema'
+import type { H3Event } from 'h3'
+import { createError } from 'h3'
+import { createSupabaseServerClient } from './supabase'
 import { buildMovementsFeed } from './domain/movementsFeed'
 import type { Movement } from './domain/movementsFeed'
 
-export async function fetchMovements(year: number, month: number): Promise<Movement[]> {
-  const [expenseRows, incomeRows, transferRows, categoryRows, accountRows, envelopeRows] = await withDbTimeout(Promise.all([
-    db.select().from(expenseEntries).where(and(eq(expenseEntries.yearAssigned, year), eq(expenseEntries.monthAssigned, month))),
-    db.select().from(incomeEntries).where(and(eq(incomeEntries.yearAssigned, year), eq(incomeEntries.monthAssigned, month))),
-    db.select().from(transfers).where(and(eq(transfers.yearAssigned, year), eq(transfers.monthAssigned, month))),
-    db.select().from(categories),
-    db.select().from(accounts),
-    db.select().from(envelopes),
-  ]))
+// This module deliberately does NOT import ./db. It reads through Supabase's Data
+// API (PostgREST) over stateless HTTPS, so there is no connection pool to exhaust
+// and no untimed pool-wait queue to hang on — the failure mode that made
+// /api/movements unloadable. See docs/superpowers/notes/2026-09-21-vercel-dashboard-hang.md.
+//
+// It also replaces six flat selects joined with JS Maps by three requests whose
+// joins Postgres resolves via embedded resources.
 
-  const categoryById = new Map(categoryRows.map((row) => [row.id, row]))
-  const accountById = new Map(accountRows.map((row) => [row.id, row]))
-  const envelopeById = new Map(envelopeRows.map((row) => [row.id, row]))
+// `categories`/`envelopes`/`accounts` resolve unambiguously: expense_entries has
+// exactly one foreign key to each.
+const EXPENSE_SELECT
+  = 'id,date,label,amount,financed_by,'
+  + 'categories(name,emoji,is_fixed),'
+  + 'envelopes(name,emoji),'
+  + 'accounts(name)'
 
-  const expenses = expenseRows.map((row) => {
-    const category = categoryById.get(row.categoryId)!
-    const envelope = row.envelopeId ? envelopeById.get(row.envelopeId) : undefined
-    const account = row.accountId ? accountById.get(row.accountId) : undefined
+// income_entries reaches envelopes through target_envelope_id; naming the column
+// picks that relationship.
+const INCOME_SELECT
+  = 'id,date_received,label,amount,'
+  + 'envelopes:target_envelope_id(name,emoji)'
+
+// transfers has TWO foreign keys to envelopes, so a bare `envelopes(...)` embed is
+// ambiguous and PostgREST answers 300 (PGRST201). Each side is disambiguated by
+// foreign-key name and aliased so the direction is explicit at the call site.
+const TRANSFER_SELECT
+  = 'id,date,reason,amount,'
+  + 'from_envelope:envelopes!from_envelope_id(name),'
+  + 'to_envelope:envelopes!to_envelope_id(name)'
+
+// Node's fetch has no default timeout. Without this, a stalled request would hang
+// the handler indefinitely — reintroducing exactly the symptom this migration removes.
+const REQUEST_TIMEOUT_MS = 10000
+
+interface EmbeddedName { name: string, emoji?: string | null }
+
+/** PostgREST returns `null` for an embed whose foreign key is null. */
+function unwrap(embed: EmbeddedName | EmbeddedName[] | null | undefined): EmbeddedName | null {
+  if (!embed) return null
+  return Array.isArray(embed) ? embed[0] ?? null : embed
+}
+
+function assertOk(table: string, error: { message: string } | null) {
+  if (!error) return
+  // Never degrade to a partial feed: an empty array would read as "nothing this
+  // month" and quietly mask an RLS or schema problem.
+  throw createError({
+    statusCode: 500,
+    statusMessage: 'Failed to load movements',
+    message: `movements: ${table} request failed: ${error.message}`,
+  })
+}
+
+export async function fetchMovements(event: H3Event, year: number, month: number): Promise<Movement[]> {
+  const supabase = createSupabaseServerClient(event)
+  const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+
+  const [expenseRes, incomeRes, transferRes] = await Promise.all([
+    supabase.from('expense_entries').select(EXPENSE_SELECT)
+      .eq('year_assigned', year).eq('month_assigned', month).abortSignal(signal),
+    supabase.from('income_entries').select(INCOME_SELECT)
+      .eq('year_assigned', year).eq('month_assigned', month).abortSignal(signal),
+    supabase.from('transfers').select(TRANSFER_SELECT)
+      .eq('year_assigned', year).eq('month_assigned', month).abortSignal(signal),
+  ])
+
+  assertOk('expense_entries', expenseRes.error)
+  assertOk('income_entries', incomeRes.error)
+  assertOk('transfers', transferRes.error)
+
+  const expenses = (expenseRes.data ?? []).map((row: any) => {
+    const category = unwrap(row.categories)
+    const envelope = unwrap(row.envelopes)
+    const account = unwrap(row.accounts)
     return {
       id: row.id,
       date: row.date,
       label: row.label,
       amount: Number(row.amount),
-      financedBy: row.financedBy,
+      financedBy: row.financed_by,
       envelopeName: envelope?.name ?? null,
       envelopeEmoji: envelope?.emoji ?? null,
-      categoryName: category.name,
-      categoryEmoji: category.emoji,
-      categoryIsFixed: category.isFixed,
+      // category_id is NOT NULL, so the embed is always present.
+      categoryName: category?.name ?? '',
+      categoryEmoji: category?.emoji ?? '',
+      categoryIsFixed: Boolean(category && (category as any).is_fixed),
       accountName: account?.name ?? null,
     }
   })
 
-  const incomes = incomeRows.map((row) => {
-    const envelope = row.targetEnvelopeId ? envelopeById.get(row.targetEnvelopeId) : undefined
+  const incomes = (incomeRes.data ?? []).map((row: any) => {
+    const envelope = unwrap(row.envelopes)
     return {
       id: row.id,
-      date: row.dateReceived,
+      date: row.date_received,
       label: row.label,
       amount: Number(row.amount),
       envelopeName: envelope?.name ?? null,
@@ -49,13 +106,13 @@ export async function fetchMovements(year: number, month: number): Promise<Movem
     }
   })
 
-  const transferMovements = transferRows.map((row) => ({
+  const transferMovements = (transferRes.data ?? []).map((row: any) => ({
     id: row.id,
     date: row.date,
     reason: row.reason,
     amount: Number(row.amount),
-    fromEnvelopeName: envelopeById.get(row.fromEnvelopeId)?.name ?? '?',
-    toEnvelopeName: envelopeById.get(row.toEnvelopeId)?.name ?? '?',
+    fromEnvelopeName: unwrap(row.from_envelope)?.name ?? '?',
+    toEnvelopeName: unwrap(row.to_envelope)?.name ?? '?',
   }))
 
   return buildMovementsFeed({ expenses, incomes, transfers: transferMovements })

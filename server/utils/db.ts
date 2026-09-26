@@ -10,11 +10,14 @@ if (!connectionString) {
 }
 
 // max must stay ABOVE the highest number of queries any single request fires in parallel,
-// or that request is forced onto postgres.js's pool-wait queue. fetchMovements alone fires 6
-// (see server/utils/movementsQuery.ts), so max:5 meant /api/movements *always* queued one
-// query even when healthy — and postgres.js's queue has no timeout (src/index.js `handler`:
-// with no free/closed/busy connection it does `queries.push(query)` and the promise simply
-// never settles). One leaked connection was therefore enough to hang that route forever.
+// or that request is forced onto postgres.js's pool-wait queue — which has no timeout
+// (src/index.js `handler`: with no free/closed/busy connection it does `queries.push(query)`
+// and the promise simply never settles), so one leaked connection can hang a route forever.
+//
+// The worst offender used to be fetchMovements at 6 parallel queries, which is why max:5
+// made /api/movements queue even when healthy. That module now reads through the Supabase
+// Data API and no longer uses this pool at all. The remaining ceiling is
+// envelopeJournalQuery/envelopeCeilingsQuery at ~5-6, so max:12 keeps real headroom.
 //
 // idle_timeout/max_lifetime bound how long a connection is held. max_lifetime is deliberately
 // short: if a connection ever does get wedged, it caps how long it can poison the pool.
