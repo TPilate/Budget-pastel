@@ -213,4 +213,27 @@ describe('listBudgetEnvelopeLedgers', () => {
       subtitle: '−15 € transférés',
     })
   })
+
+  it('reports income credited to the envelope so the dashboard can show "+X € reçus"', async () => {
+    mocks.rowsByTable.envelopes = [
+      { id: 'e9', name: 'Restaurants', emoji: '🍽️', showOnHome: true, defaultCeiling: '130.00' },
+    ]
+    mocks.rowsByTable.expenseEntries = [
+      { envelopeId: 'e9', amount: '102.00' },
+    ]
+    mocks.rowsByTable.incomeEntries = [
+      { targetEnvelopeId: 'e9', amount: '20.00' },
+    ]
+
+    const result = await listBudgetEnvelopeLedgers(2026, 9)
+
+    // netSpent is expenses minus credits: 102 - 20 = 82, leaving 130 - 82 = 48.
+    // incomeCreditsTotal is the 20 itself, which netSpent alone cannot recover.
+    expect(result[0]).toMatchObject({
+      ceiling: 130,
+      netSpent: 82,
+      remaining: 48,
+      incomeCreditsTotal: 20,
+    })
+  })
 })

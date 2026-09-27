@@ -13,6 +13,9 @@ export interface BudgetEnvelopeLedger {
   netSpent: number
   remaining: number
   subtitle: string | null
+  // Expenses minus credits gives netSpent, which cannot be un-mixed afterwards. The
+  // dashboard needs the credits separately to render "+20 € reçus".
+  incomeCreditsTotal: number
 }
 
 export async function listBudgetEnvelopeLedgers(year: number, month: number): Promise<BudgetEnvelopeLedger[]> {
@@ -77,6 +80,7 @@ export async function listBudgetEnvelopeLedgers(year: number, month: number): Pr
       emoji: envelope.emoji,
       showOnHome: envelope.showOnHome,
       ...ledger,
+      incomeCreditsTotal,
       subtitle: deriveEnvelopeSubtitle({
         carriedOverAmount,
         netTransfer: transfersInTotal - transfersOutTotal,
