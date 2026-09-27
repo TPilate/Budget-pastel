@@ -20,6 +20,17 @@ const { data: items, error, refresh } = await useFetch<WishlistItemView[]>('/api
   default: () => [],
 })
 
+interface EnvelopeOption {
+  id: string
+  name: string
+  emoji: string
+}
+
+const { data: envelopeOptions } = await useFetch<EnvelopeOption[]>('/api/envelopes', {
+  key: 'envelopes-for-wishlist',
+  default: () => [],
+})
+
 const sortMode = ref<'priority' | 'price'>('priority')
 
 const PRIORITY_RANK: Record<WishlistPriority, number> = { haute: 0, moyenne: 1, basse: 2 }
@@ -76,24 +87,42 @@ function subtitle(item: WishlistItemView) {
 }
 
 const isCreating = ref(false)
+// Distinct from isCreating (whether the form is open): this tracks whether a
+// POST is currently in flight, so the button can be disabled to guard against
+// double-clicks producing duplicate wishes (there is no delete/edit UI yet).
+const isSubmitting = ref(false)
 const newLabel = ref('')
 const newPrice = ref('')
 const newPriority = ref<WishlistPriority>('moyenne')
+const newEnvelopeId = ref('')
 const createError = ref('')
 
 async function createItem() {
   createError.value = ''
+  isSubmitting.value = true
   try {
+    // The API expects a plain number and rejects the French decimal comma
+    // (e.g. "49,60") with NaN, so normalise it the same way useAmountInput does
+    // for the other entry forms before sending it.
+    const normalizedPrice = newPrice.value.trim().replace(',', '.')
     await $fetch('/api/wishlist', {
       method: 'POST',
-      body: { label: newLabel.value, price: newPrice.value, priority: newPriority.value },
+      body: {
+        label: newLabel.value,
+        price: normalizedPrice,
+        priority: newPriority.value,
+        envelopeId: newEnvelopeId.value || undefined,
+      },
     })
     newLabel.value = ''
     newPrice.value = ''
+    newEnvelopeId.value = ''
     isCreating.value = false
     await refresh()
   } catch {
     createError.value = "Impossible d'ajouter cette envie."
+  } finally {
+    isSubmitting.value = false
   }
 }
 </script>
@@ -167,8 +196,21 @@ async function createItem() {
             <option value="basse">Basse</option>
           </select>
         </label>
-        <button type="submit" class="rounded-[12px] bg-primary px-4 py-2 text-[12.5px] font-bold text-primary-ink">
-          Ajouter
+        <label class="flex flex-col gap-1 text-[12px] font-semibold text-ink-muted">
+          Enveloppe
+          <select v-model="newEnvelopeId" class="rounded-lg border border-divider px-3 py-2 text-ink">
+            <option value="">Aucune</option>
+            <option v-for="envelope in envelopeOptions" :key="envelope.id" :value="envelope.id">
+              {{ envelope.emoji }} {{ envelope.name }}
+            </option>
+          </select>
+        </label>
+        <button
+          type="submit"
+          :disabled="isSubmitting"
+          class="rounded-[12px] bg-primary px-4 py-2 text-[12.5px] font-bold text-primary-ink disabled:opacity-50"
+        >
+          {{ isSubmitting ? 'Ajout…' : 'Ajouter' }}
         </button>
         <p v-if="createError" class="w-full text-[12.5px] font-semibold text-warn-ink">{{ createError }}</p>
       </form>

@@ -41,6 +41,14 @@ const fixedColumns = computed(() => {
   const half = Math.ceil(lines.length / 2)
   return [lines.slice(0, half), lines.slice(half)]
 })
+
+// Nothing in the app can set current_balance yet, so every account reads 0 and
+// "Vraiment libre" would show a false negative (0 minus what's committed). Detect
+// that case here and hint at it instead of printing a misleading figure.
+const hasNoRecordedBalances = computed(() => {
+  const accounts = overview.value?.accounts ?? []
+  return accounts.length > 0 && accounts.every((account) => account.balance === 0)
+})
 </script>
 
 <template>
@@ -66,7 +74,9 @@ const fixedColumns = computed(() => {
           <div class="rounded-[18px] border border-divider bg-white p-5">
             <p class="text-[11.5px] font-semibold text-ink-faint">Solde bancaire</p>
             <p class="pt-1 text-2xl font-extrabold text-ink">{{ formatEuroShort(overview.bankBalance) }}</p>
-            <p class="pt-1 text-[11.5px] text-ink-faint">compte courant seul</p>
+            <p class="pt-1 text-[11.5px] text-ink-faint">
+              {{ hasNoRecordedBalances ? 'solde à renseigner' : 'compte courant seul' }}
+            </p>
           </div>
           <div class="rounded-[18px] border border-divider bg-white p-5">
             <p class="text-[11.5px] font-semibold text-ink-faint">Engagé par les enveloppes</p>
@@ -75,8 +85,11 @@ const fixedColumns = computed(() => {
           </div>
           <div class="rounded-[18px] border border-divider bg-app-bg p-5">
             <p class="text-[11.5px] font-semibold text-ink-faint">Vraiment libre</p>
-            <p class="pt-1 text-2xl font-extrabold text-ink">{{ formatEuroShort(overview.reallyFree) }}</p>
-            <p class="pt-1 text-[11.5px] text-ink-faint">solde moins engagements</p>
+            <p v-if="hasNoRecordedBalances" class="pt-1 text-2xl font-extrabold text-ink-faint">—</p>
+            <p v-else class="pt-1 text-2xl font-extrabold text-ink">{{ formatEuroShort(overview.reallyFree) }}</p>
+            <p class="pt-1 text-[11.5px] text-ink-faint">
+              {{ hasNoRecordedBalances ? 'solde à renseigner' : 'solde moins engagements' }}
+            </p>
           </div>
         </div>
 
