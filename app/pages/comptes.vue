@@ -21,19 +21,7 @@ const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juil
 const now = new Date()
 const currentMonthLabel = `${monthNames[now.getMonth()]} ${now.getFullYear()}`
 
-// Intl.NumberFormat is used instead of toFixed().replace() because the
-// hand-rolled version never inserted the French thousands separator
-// (e.g. "7524,00 €" instead of "7 524,00 €").
-const EURO_FORMAT = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const EURO_SHORT_FORMAT = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 })
-
-function euro(value: number) {
-  return `${EURO_FORMAT.format(value)} €`
-}
-
-function euroShort(value: number) {
-  return `${EURO_SHORT_FORMAT.format(value)} €`
-}
+// formatEuro / formatEuroShort come from app/utils/currency.ts (auto-imported by Nuxt).
 
 const variableTotals = computed(() => {
   const rows = overview.value?.variableSpend ?? []
@@ -77,17 +65,17 @@ const fixedColumns = computed(() => {
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div class="rounded-[18px] border border-divider bg-white p-5">
             <p class="text-[11.5px] font-semibold text-ink-faint">Solde bancaire</p>
-            <p class="pt-1 text-2xl font-extrabold text-ink">{{ euroShort(overview.bankBalance) }}</p>
+            <p class="pt-1 text-2xl font-extrabold text-ink">{{ formatEuroShort(overview.bankBalance) }}</p>
             <p class="pt-1 text-[11.5px] text-ink-faint">compte courant seul</p>
           </div>
           <div class="rounded-[18px] border border-divider bg-white p-5">
             <p class="text-[11.5px] font-semibold text-ink-faint">Engagé par les enveloppes</p>
-            <p class="pt-1 text-2xl font-extrabold text-ink">{{ euroShort(overview.committed) }}</p>
+            <p class="pt-1 text-2xl font-extrabold text-ink">{{ formatEuroShort(overview.committed) }}</p>
             <p class="pt-1 text-[11.5px] text-ink-faint">plafonds restants et réserves</p>
           </div>
           <div class="rounded-[18px] border border-divider bg-app-bg p-5">
             <p class="text-[11.5px] font-semibold text-ink-faint">Vraiment libre</p>
-            <p class="pt-1 text-2xl font-extrabold text-ink">{{ euroShort(overview.reallyFree) }}</p>
+            <p class="pt-1 text-2xl font-extrabold text-ink">{{ formatEuroShort(overview.reallyFree) }}</p>
             <p class="pt-1 text-[11.5px] text-ink-faint">solde moins engagements</p>
           </div>
         </div>
@@ -103,7 +91,7 @@ const fixedColumns = computed(() => {
                 <span>{{ account.emoji }}</span>
                 {{ account.name }}
               </span>
-              <span class="text-[13px] font-bold text-ink">{{ euro(account.balance) }}</span>
+              <span class="text-[13px] font-bold text-ink">{{ formatEuro(account.balance) }}</span>
             </li>
           </ul>
         </section>
@@ -112,7 +100,7 @@ const fixedColumns = computed(() => {
           <header class="flex items-baseline justify-between">
             <h2 class="text-[13.5px] font-extrabold text-ink">Charges fixes du mois</h2>
             <span class="text-[11.5px] font-semibold text-ink-faint">
-              {{ euroShort(overview.fixedCharges.total) }} · {{ overview.fixedCharges.settledCount }} sur {{ overview.fixedCharges.totalCount }} pointées
+              {{ formatEuroShort(overview.fixedCharges.total) }} · {{ overview.fixedCharges.settledCount }} sur {{ overview.fixedCharges.totalCount }} pointées
             </span>
           </header>
           <p v-if="!overview.fixedCharges.totalCount" class="pt-3 text-[12.5px] text-ink-faint">
@@ -124,7 +112,7 @@ const fixedColumns = computed(() => {
                 <span :class="line.isSettled ? 'font-semibold text-ink' : 'text-ink-faint'">
                   {{ line.isSettled ? '✓' : '○' }} {{ line.name }}
                 </span>
-                <span class="font-semibold text-ink">{{ euro(line.amount) }}</span>
+                <span class="font-semibold text-ink">{{ formatEuro(line.amount) }}</span>
               </li>
             </ul>
           </div>
@@ -136,8 +124,8 @@ const fixedColumns = computed(() => {
           <h2 class="text-[13.5px] font-extrabold text-ink">Dépenses variables</h2>
         </header>
         <p class="pt-1 text-2xl font-extrabold text-ink">
-          {{ euroShort(variableTotals.spent) }}
-          <span class="text-[11.5px] font-semibold text-ink-faint">sur {{ euroShort(variableTotals.ceiling) }} prévus</span>
+          {{ formatEuroShort(variableTotals.spent) }}
+          <span class="text-[11.5px] font-semibold text-ink-faint">sur {{ formatEuroShort(variableTotals.ceiling) }} prévus</span>
         </p>
 
         <p v-if="!overview.variableSpend.length" class="pt-3 text-[12.5px] text-ink-faint">
@@ -147,7 +135,7 @@ const fixedColumns = computed(() => {
           <li v-for="row in overview.variableSpend" :key="row.id" class="flex flex-col gap-1">
             <div class="flex items-center justify-between text-[12.5px]">
               <span class="font-semibold text-ink">{{ row.name }}</span>
-              <span class="font-semibold text-ink-faint">{{ euroShort(row.spent) }} / {{ euroShort(row.ceiling) }}</span>
+              <span class="font-semibold text-ink-faint">{{ formatEuroShort(row.spent) }} / {{ formatEuroShort(row.ceiling) }}</span>
             </div>
             <div class="h-1.5 w-full rounded-full bg-toggle-track">
               <div

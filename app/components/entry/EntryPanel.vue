@@ -84,10 +84,6 @@ const previewLines = computed<PreviewLine[]>(() => {
   return [{ label: `${envelope.emoji} ${envelope.name}`, before: envelope.remaining, after: envelope.remaining + delta, suffix: 'restant' }]
 })
 
-function formatEuro(value: number) {
-  return `${value.toFixed(2).replace('.', ',')} €`
-}
-
 function handleSaved() {
   refreshNuxtData('movements-feed')
   refreshNuxtData('envelope-ceilings')

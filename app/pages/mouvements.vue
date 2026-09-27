@@ -31,7 +31,7 @@ const filteredMovements = computed(() => {
 })
 
 function formatAmount(movement: Movement) {
-  const formatted = `${Math.abs(movement.amount).toFixed(2).replace('.', ',')} €`
+  const formatted = formatEuro(Math.abs(movement.amount))
   if (movement.sign === 'negative') return `-${formatted}`
   if (movement.sign === 'positive') return `+${formatted}`
   return formatted

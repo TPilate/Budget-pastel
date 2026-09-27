@@ -32,10 +32,6 @@ const totalCeiling = computed(() => (envelopes.value ?? []).reduce((sum, envelop
 const totalNetSpent = computed(() => (envelopes.value ?? []).reduce((sum, envelope) => sum + envelope.netSpent, 0))
 const totalRemaining = computed(() => (envelopes.value ?? []).reduce((sum, envelope) => sum + envelope.remaining, 0))
 
-function euro(value: number) {
-  return `${value.toFixed(2).replace('.', ',')} €`
-}
-
 function progressPercent(envelope: BudgetEnvelopeLedger) {
   return envelope.ceiling > 0 ? Math.min(100, Math.max(0, Math.round((envelope.netSpent / envelope.ceiling) * 100))) : 0
 }
@@ -81,7 +77,7 @@ function openDrawer(envelope: BudgetEnvelopeLedger) {
 }
 
 function formatMovementAmount(movement: Movement) {
-  const formatted = `${Math.abs(movement.amount).toFixed(2).replace('.', ',')} €`
+  const formatted = formatEuro(Math.abs(movement.amount))
   if (movement.sign === 'negative') return `-${formatted}`
   if (movement.sign === 'positive') return `+${formatted}`
   return formatted
@@ -139,10 +135,10 @@ function formatDate(isoDate: string) {
                 </div>
               </div>
             </td>
-            <td class="py-2.5 text-right font-bold text-ink">{{ euro(envelope.ceiling) }}</td>
-            <td class="py-2.5 text-right font-bold text-ink">{{ euro(envelope.netSpent) }}</td>
+            <td class="py-2.5 text-right font-bold text-ink">{{ formatEuro(envelope.ceiling) }}</td>
+            <td class="py-2.5 text-right font-bold text-ink">{{ formatEuro(envelope.netSpent) }}</td>
             <td class="py-2.5 text-right font-bold" :class="envelope.remaining < 0 ? 'text-warn-ink' : 'text-ink'">
-              {{ euro(envelope.remaining) }}
+              {{ formatEuro(envelope.remaining) }}
             </td>
             <td class="py-2.5">
               <div class="h-[6px] w-full rounded-full bg-toggle-track">
@@ -158,9 +154,9 @@ function formatDate(isoDate: string) {
         <tfoot>
           <tr class="border-t border-divider font-extrabold text-ink">
             <td class="py-2.5">Total</td>
-            <td class="py-2.5 text-right">{{ euro(totalCeiling) }}</td>
-            <td class="py-2.5 text-right">{{ euro(totalNetSpent) }}</td>
-            <td class="py-2.5 text-right" :class="totalRemaining < 0 ? 'text-warn-ink' : 'text-ink'">{{ euro(totalRemaining) }}</td>
+            <td class="py-2.5 text-right">{{ formatEuro(totalCeiling) }}</td>
+            <td class="py-2.5 text-right">{{ formatEuro(totalNetSpent) }}</td>
+            <td class="py-2.5 text-right" :class="totalRemaining < 0 ? 'text-warn-ink' : 'text-ink'">{{ formatEuro(totalRemaining) }}</td>
             <td class="py-2.5" />
           </tr>
         </tfoot>
@@ -173,9 +169,9 @@ function formatDate(isoDate: string) {
     <div v-else class="grid grid-cols-2 gap-4">
       <div v-for="reserve in reserves" :key="reserve.id" class="rounded-[22px] bg-toggle-track p-4">
         <p class="text-[12.5px] font-bold text-ink">{{ reserve.emoji }} {{ reserve.name }}</p>
-        <p class="mt-1 text-[20px] font-extrabold text-ink">{{ euro(reserve.balance) }} <span class="text-[11px] font-semibold text-ink-muted">disponibles</span></p>
+        <p class="mt-1 text-[20px] font-extrabold text-ink">{{ formatEuro(reserve.balance) }} <span class="text-[11px] font-semibold text-ink-muted">disponibles</span></p>
         <p class="mt-1 text-[11px] font-medium text-ink-muted">
-          {{ euro(reserve.incomeCreditsTotal) }} reçus, {{ euro(reserve.expensesTotal) }} dépensés. Hors budget du mois et hors règle 50/30/20.
+          {{ formatEuro(reserve.incomeCreditsTotal) }} reçus, {{ formatEuro(reserve.expensesTotal) }} dépensés. Hors budget du mois et hors règle 50/30/20.
         </p>
       </div>
     </div>
@@ -186,8 +182,8 @@ function formatDate(isoDate: string) {
 
         <div>
           <p class="text-[12px] font-bold text-ink-muted">Reste à dépenser</p>
-          <p class="mt-1 text-[26px] font-extrabold text-ink">{{ euro(selectedEnvelope.remaining) }}</p>
-          <p class="text-[11px] font-medium text-ink-muted">sur {{ euro(selectedEnvelope.ceiling) }}</p>
+          <p class="mt-1 text-[26px] font-extrabold text-ink">{{ formatEuro(selectedEnvelope.remaining) }}</p>
+          <p class="text-[11px] font-medium text-ink-muted">sur {{ formatEuro(selectedEnvelope.ceiling) }}</p>
           <div class="mt-2 h-[6px] w-full rounded-full bg-toggle-track">
             <div
               class="h-full rounded-full"

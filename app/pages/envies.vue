@@ -57,19 +57,7 @@ const summary = computed(() => {
   }
 })
 
-// Intl.NumberFormat is used instead of toFixed().replace() because the
-// hand-rolled version never inserted the French thousands separator
-// (e.g. "7524,00 €" instead of "7 524,00 €").
-const EURO_FORMAT = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const EURO_SHORT_FORMAT = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 })
-
-function euro(value: number) {
-  return `${EURO_FORMAT.format(value)} €`
-}
-
-function euroShort(value: number) {
-  return `${EURO_SHORT_FORMAT.format(value)} €`
-}
+// formatEuro / formatEuroShort come from app/utils/currency.ts (auto-imported by Nuxt).
 
 const PRIORITY_DOT: Record<WishlistPriority, string> = {
   haute: 'bg-warn-bar',
@@ -82,9 +70,9 @@ function subtitle(item: WishlistItemView) {
   const label = `${item.envelopeEmoji ?? ''} ${item.envelopeName}`.trim()
   if (item.envelopeRemaining === null) return label
   if (item.envelopeRemaining < 0) {
-    return `${label} · enveloppe déjà dépassée de ${euroShort(Math.abs(item.envelopeRemaining))}`
+    return `${label} · enveloppe déjà dépassée de ${formatEuroShort(Math.abs(item.envelopeRemaining))}`
   }
-  return `${label} · ${euroShort(item.envelopeRemaining)} restants ce mois`
+  return `${label} · ${formatEuroShort(item.envelopeRemaining)} restants ce mois`
 }
 
 const isCreating = ref(false)
@@ -115,7 +103,7 @@ async function createItem() {
     <PageHeader title="Envies">
       <template #context>
         <span class="rounded-full bg-app-bg px-3 py-1 text-[12.5px] font-semibold text-ink-muted">
-          {{ summary.count }} envies · {{ euro(summary.total) }} au total
+          {{ summary.count }} envies · {{ formatEuro(summary.total) }} au total
         </span>
       </template>
       <template #actions>
@@ -201,7 +189,7 @@ async function createItem() {
                   <span class="h-2 w-2 shrink-0 rounded-full" :class="PRIORITY_DOT[item.priority]" />
                   {{ item.label }}
                 </span>
-                <span class="shrink-0 text-[13px] font-bold text-ink">{{ euroShort(item.price) }}</span>
+                <span class="shrink-0 text-[13px] font-bold text-ink">{{ formatEuroShort(item.price) }}</span>
               </div>
               <p v-if="subtitle(item)" class="pl-4 pt-1 text-[11.5px] font-semibold text-ink-faint">
                 {{ subtitle(item) }}
