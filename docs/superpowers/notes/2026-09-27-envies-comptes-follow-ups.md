@@ -1,5 +1,10 @@
 # Follow-ups after the Envies & Comptes milestone
 
+> **Updated 2026-10-03** after the dashboard milestone. Item 5 is partly addressed —
+> `app/utils/currency.ts` now demonstrates the shared-module pattern, and the dashboard
+> keeps its arithmetic server-side rather than reimplementing it in the page. Items 1
+> and 2 (RLS) are untouched and remain the highest-value work here.
+
 Recorded 2026-09-27, at the end of `docs/superpowers/plans/2026-09-26-envies-comptes.md`.
 Everything here was found during execution or by the final whole-branch review. None
 of it blocked the merge; all of it is worth deciding on deliberately rather than
