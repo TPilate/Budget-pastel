@@ -41,15 +41,23 @@ export async function fetchAccountsOverview(
 
   // New reads go through the Data API; the two envelope helpers already exist and
   // are reused rather than reimplemented.
-  const [accountsRes, categoriesRes, expensesRes, ledgers, reserves] = await Promise.all([
+  //
+  // listBudgetEnvelopeLedgers and listReserveEnvelopeBalances are both pool-backed (5
+  // and 3 round-trips respectively). They are awaited one after another, not inside the
+  // Promise.all below, so this route never holds more than 5 pool slots at once instead
+  // of 8 — the same reasoning as /api/dashboard (server/utils/dashboardQuery.ts): the
+  // pool-wait queue postgres.js falls back to has no timeout, so an exhausted pool hangs
+  // a request forever instead of erroring. Do not fold these back into the Promise.all.
+  const ledgers = await listBudgetEnvelopeLedgers(year, month)
+  const reserves = await listReserveEnvelopeBalances()
+
+  const [accountsRes, categoriesRes, expensesRes] = await Promise.all([
     supabase.from('accounts').select('id,name,emoji,current_balance,kind')
       .is('archived_at', null).order('sort_order').abortSignal(signal),
     supabase.from('categories').select('id,name,default_target')
       .eq('is_fixed', true).is('archived_at', null).order('sort_order').abortSignal(signal),
     supabase.from('expense_entries').select('category_id')
       .eq('year_assigned', year).eq('month_assigned', month).abortSignal(signal),
-    listBudgetEnvelopeLedgers(year, month),
-    listReserveEnvelopeBalances(),
   ])
 
   assertOk('accounts', accountsRes.error)
