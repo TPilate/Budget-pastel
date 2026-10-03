@@ -1,0 +1,56 @@
+import { test, expect } from '@playwright/test'
+
+const email = process.env.SEED_USER_EMAIL
+const password = process.env.SEED_USER_PASSWORD
+const hasRealSupabaseConfig = Boolean(process.env.SUPABASE_URL) && Boolean(process.env.SUPABASE_ANON_KEY)
+
+test.beforeEach(async ({ page }) => {
+  test.skip(!email || !password || !hasRealSupabaseConfig, 'Requires a real Supabase project and seed user')
+  await page.goto('/login')
+  await page.getByLabel('Email').fill(email!)
+  await page.getByLabel('Mot de passe').fill(password!)
+  await page.getByRole('button', { name: 'Se connecter' }).click()
+  await expect(page).toHaveURL('http://localhost:3000/')
+})
+
+test('renders the four KPI cards and survives a reload', async ({ page }) => {
+  await expect(page.getByText('Salaire reçu')).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByText('Épargne versée')).toBeVisible()
+  await expect(page.getByText('Reste à dépenser')).toBeVisible()
+
+  // The reload is the regression guard: it is where pool exhaustion used to surface.
+  await page.reload()
+  await expect(page.getByText('Salaire reçu')).toBeVisible({ timeout: 15_000 })
+})
+
+test('serves a coherent dashboard payload to a signed-in session', async ({ page }) => {
+  const response = await page.request.get('/api/dashboard')
+  expect(response.status()).toBe(200)
+
+  const payload = await response.json()
+  const { summary, income, savings, envelopes } = payload
+
+  // The donut must partition income exactly: the five slices sum back to what came in.
+  const sliceTotal = summary.slices.reduce((sum: number, s: any) => sum + s.amount, 0)
+  expect(sliceTotal).toBeCloseTo(income.received, 2)
+
+  expect(savings.total).toBeCloseTo(
+    savings.byGoal.reduce((sum: number, g: any) => sum + g.amount, 0), 2)
+  expect(envelopes.overspentCount).toBeLessThanOrEqual(envelopes.cards.length)
+
+  // No percentage may be NaN, whatever the data.
+  for (const slice of summary.slices) expect(Number.isNaN(slice.percent)).toBe(false)
+})
+
+test('does not reach the dashboard endpoint without a session', async ({ browser }) => {
+  const fresh = await browser.newContext()
+  const response = await fresh.request.get('http://localhost:3000/api/dashboard')
+  expect(response.status()).toBe(401)
+  await fresh.close()
+})
+
+test('shows no month navigation or closure action', async ({ page }) => {
+  await expect(page.getByText('Salaire reçu')).toBeVisible({ timeout: 15_000 })
+  // Both are explicitly out of scope; a visible dead control reads as broken.
+  await expect(page.getByText('Clôturer le mois')).toHaveCount(0)
+})

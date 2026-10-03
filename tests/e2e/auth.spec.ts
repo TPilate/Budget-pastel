@@ -17,11 +17,15 @@ test('logs in with valid credentials and reaches the protected home page', async
   await page.getByLabel('Mot de passe').fill(password!)
   await page.getByRole('button', { name: 'Se connecter' }).click()
 
+  // The home page is now the dashboard (see tests/e2e/dashboard.spec.ts for the full
+  // coverage of its content); this test only needs to confirm the authenticated
+  // session actually reaches it, so it checks for a label that is always rendered,
+  // income or not.
   await expect(page).toHaveURL('http://localhost:3000/')
-  await expect(page.getByText('Connecté')).toBeVisible()
+  await expect(page.getByText('Salaire reçu')).toBeVisible({ timeout: 15_000 })
 
   await page.reload()
 
   await expect(page).toHaveURL('http://localhost:3000/')
-  await expect(page.getByText('Connecté')).toBeVisible()
+  await expect(page.getByText('Salaire reçu')).toBeVisible({ timeout: 15_000 })
 })

@@ -97,6 +97,18 @@ const newPriority = ref<WishlistPriority>('moyenne')
 const newEnvelopeId = ref('')
 const createError = ref('')
 
+// Hydration is fast now, but it is never instant, and correctness should not depend on
+// how quickly it lands. This page has top-level awaits (useFetch above) plus a form,
+// exactly the combination app/pages/login.vue's header comment warns about: anything
+// typed before hydration finishes is discarded when hydration patches the inputs to
+// match these empty refs. The form stays disabled until mounted so nothing can be typed
+// into or submitted from markup Vue has not taken over yet. isHydrated is a separate
+// concern from isSubmitting (a request in flight) and the two are not merged.
+const isHydrated = ref(false)
+onMounted(() => {
+  isHydrated.value = true
+})
+
 async function createItem() {
   createError.value = ''
   isSubmitting.value = true
@@ -182,15 +194,15 @@ async function createItem() {
       >
         <label class="flex flex-col gap-1 text-[12px] font-semibold text-ink-muted">
           Envie
-          <input v-model="newLabel" required class="rounded-lg border border-divider px-3 py-2 text-ink">
+          <input v-model="newLabel" required :disabled="!isHydrated" class="rounded-lg border border-divider px-3 py-2 text-ink disabled:bg-app-bg">
         </label>
         <label class="flex flex-col gap-1 text-[12px] font-semibold text-ink-muted">
           Prix
-          <input v-model="newPrice" required inputmode="decimal" class="w-28 rounded-lg border border-divider px-3 py-2 text-ink">
+          <input v-model="newPrice" required inputmode="decimal" :disabled="!isHydrated" class="w-28 rounded-lg border border-divider px-3 py-2 text-ink disabled:bg-app-bg">
         </label>
         <label class="flex flex-col gap-1 text-[12px] font-semibold text-ink-muted">
           Priorité
-          <select v-model="newPriority" class="rounded-lg border border-divider px-3 py-2 text-ink">
+          <select v-model="newPriority" :disabled="!isHydrated" class="rounded-lg border border-divider px-3 py-2 text-ink disabled:bg-app-bg">
             <option value="haute">Haute</option>
             <option value="moyenne">Moyenne</option>
             <option value="basse">Basse</option>
@@ -198,7 +210,7 @@ async function createItem() {
         </label>
         <label class="flex flex-col gap-1 text-[12px] font-semibold text-ink-muted">
           Enveloppe
-          <select v-model="newEnvelopeId" class="rounded-lg border border-divider px-3 py-2 text-ink">
+          <select v-model="newEnvelopeId" :disabled="!isHydrated" class="rounded-lg border border-divider px-3 py-2 text-ink disabled:bg-app-bg">
             <option value="">Aucune</option>
             <option v-for="envelope in envelopeOptions" :key="envelope.id" :value="envelope.id">
               {{ envelope.emoji }} {{ envelope.name }}
@@ -207,7 +219,7 @@ async function createItem() {
         </label>
         <button
           type="submit"
-          :disabled="isSubmitting"
+          :disabled="isSubmitting || !isHydrated"
           class="rounded-[12px] bg-primary px-4 py-2 text-[12.5px] font-bold text-primary-ink disabled:opacity-50"
         >
           {{ isSubmitting ? 'Ajout…' : 'Ajouter' }}
