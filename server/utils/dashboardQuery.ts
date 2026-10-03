@@ -111,16 +111,23 @@ export async function fetchDashboard(
     daysRemaining: daysRemainingInMonth(today),
   })
 
-  // The envelope's own bucket wins over its category's: it is the more specific tag.
+  // An envelope is the more specific intent, so its tag wins outright — including when it
+  // has none, which is how reserve spend stays out of 50/30/20. Only an expense with no
+  // envelope at all falls back to its category's tag.
   // gift_received spend is dropped here too, matching partitionExpenses.
   const taggedSpend = expenseRows
     .filter((row) => row.financed_by !== 'gift_received')
-    .map((row) => ({
-      bucket: (unwrap<any>(row.envelopes)?.fifty_thirty_twenty_bucket
-        ?? unwrap<any>(row.categories)?.fifty_thirty_twenty_bucket
-        ?? null) as Bucket5030 | null,
-      amount: Number(row.amount),
-    }))
+    .map((row) => {
+      const envelope = unwrap<any>(row.envelopes)
+      const category = unwrap<any>(row.categories)
+      const bucket = (envelope
+        ? envelope.fifty_thirty_twenty_bucket
+        : category?.fifty_thirty_twenty_bucket) ?? null
+      return {
+        bucket: bucket as Bucket5030 | null,
+        amount: Number(row.amount),
+      }
+    })
 
   const ruleOfThumb = compute503020({
     incomeReceived: income.received,

@@ -101,6 +101,49 @@ describe('fetchDashboard', () => {
     expect(payload.ruleOfThumb.actuals.besoins).toBe(0)
   })
 
+  it('leaves an envelope expense untagged when the envelope itself has no bucket, even if its category does', async () => {
+    // Regression for F1: presence of an envelope must short-circuit the fallback to the
+    // category's tag. The only real envelopes with a null bucket are reserves
+    // (Anniversaire et fêtes, Extras), and reserve spend must stay out of 50/30/20.
+    mocks.responseByTable.income_entries = {
+      data: [{ amount: '1000.00', expected_amount: null, target_envelope_id: null }],
+      error: null,
+    }
+    mocks.responseByTable.expense_entries = {
+      data: [
+        { amount: '252.00', envelope_id: 'reserve-1', financed_by: 'budget', categories: { is_fixed: false, fifty_thirty_twenty_bucket: 'besoins' }, envelopes: { fifty_thirty_twenty_bucket: null } },
+      ],
+      error: null,
+    }
+
+    const payload = await fetchDashboard(fakeEvent(), 2026, 9, new Date(2026, 8, 20))
+
+    expect(payload.ruleOfThumb.untagged).toBe(252)
+    expect(payload.ruleOfThumb.actuals.besoins).toBe(0)
+  })
+
+  it('excludes gift_received expenses from both the donut slices and the 50/30/20 actuals', async () => {
+    // Regression for F2: the donut and the 50/30/20 row must agree that gift-funded
+    // spend does not exist for either calculation.
+    mocks.responseByTable.income_entries = {
+      data: [{ amount: '1000.00', expected_amount: null, target_envelope_id: null }],
+      error: null,
+    }
+    mocks.responseByTable.expense_entries = {
+      data: [
+        { amount: '500.00', envelope_id: null, financed_by: 'gift_received', categories: { is_fixed: false, fifty_thirty_twenty_bucket: 'besoins' }, envelopes: null },
+      ],
+      error: null,
+    }
+
+    const payload = await fetchDashboard(fakeEvent(), 2026, 9, new Date(2026, 8, 20))
+
+    const variableSlice = payload.summary.slices.find((slice) => slice.key === 'variable')
+    expect(variableSlice?.amount).toBe(0)
+    expect(payload.ruleOfThumb.actuals.besoins).toBe(0)
+    expect(payload.ruleOfThumb.untagged).toBe(0)
+  })
+
   it('summarises the envelope totals and counts overspends', async () => {
     ledgerMock.mockResolvedValue([
       { id: 'e1', name: 'Restaurants', emoji: '🍽️', showOnHome: true, ceiling: 130, netSpent: 82, remaining: 48, subtitle: null, incomeCreditsTotal: 20 },
