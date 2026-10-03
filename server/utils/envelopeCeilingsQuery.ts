@@ -16,6 +16,10 @@ export interface BudgetEnvelopeLedger {
   // Expenses minus credits gives netSpent, which cannot be un-mixed afterwards. The
   // dashboard needs the credits separately to render "+20 € reçus".
   incomeCreditsTotal: number
+  // `ceiling` above is computed (base + carry-over - overspend + transfers) and so is not
+  // editable. The envelope edit form needs the stored defaultCeiling, which is the field
+  // PATCH /api/envelopes/[id] actually writes.
+  defaultCeiling: number
 }
 
 export async function listBudgetEnvelopeLedgers(year: number, month: number): Promise<BudgetEnvelopeLedger[]> {
@@ -81,6 +85,7 @@ export async function listBudgetEnvelopeLedgers(year: number, month: number): Pr
       showOnHome: envelope.showOnHome,
       ...ledger,
       incomeCreditsTotal,
+      defaultCeiling: Number(envelope.defaultCeiling ?? 0),
       subtitle: deriveEnvelopeSubtitle({
         carriedOverAmount,
         netTransfer: transfersInTotal - transfersOutTotal,

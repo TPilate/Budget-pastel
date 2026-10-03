@@ -214,6 +214,19 @@ describe('listBudgetEnvelopeLedgers', () => {
     })
   })
 
+  it('exposes the raw defaultCeiling so the edit form can show what is actually stored', async () => {
+    // The ledger's `ceiling` is computed (base + carry-over - overspend + transfers), so it
+    // cannot be edited directly. The edit form needs the underlying defaultCeiling, which is
+    // the field the PATCH endpoint writes.
+    mocks.rowsByTable.envelopes = [
+      { id: 'e8', name: 'Sorties', emoji: '🥂', showOnHome: true, defaultCeiling: '90.00' },
+    ]
+
+    const result = await listBudgetEnvelopeLedgers(2026, 9)
+
+    expect(result[0]).toMatchObject({ ceiling: 90, defaultCeiling: 90 })
+  })
+
   it('reports income credited to the envelope so the dashboard can show "+X € reçus"', async () => {
     mocks.rowsByTable.envelopes = [
       { id: 'e9', name: 'Restaurants', emoji: '🍽️', showOnHome: true, defaultCeiling: '130.00' },

@@ -8,6 +8,7 @@ interface BudgetEnvelopeLedger {
   netSpent: number
   remaining: number
   subtitle: string | null
+  defaultCeiling: number
 }
 
 interface ReserveEnvelopeBalance {
@@ -19,7 +20,7 @@ interface ReserveEnvelopeBalance {
   expensesTotal: number
 }
 
-const [{ data: envelopes, error: envelopesError }, { data: reserves, error: reservesError }] = await Promise.all([
+const [{ data: envelopes, error: envelopesError, refresh: refreshEnvelopes }, { data: reserves, error: reservesError }] = await Promise.all([
   useFetch<BudgetEnvelopeLedger[]>('/api/envelopes/ceilings', { key: 'envelope-ceilings' }),
   useFetch<ReserveEnvelopeBalance[]>('/api/envelopes/reserves', { key: 'reserve-envelopes' }),
 ])
@@ -71,6 +72,17 @@ watch(selectedEnvelope, async (envelope) => {
     journalPending.value = false
   }
 })
+
+async function onEnvelopeSaved() {
+  const editedId = selectedEnvelope.value?.id
+  await refreshEnvelopes()
+  // refresh() replaces the array, so the drawer would otherwise keep rendering a stale
+  // object: the table would show the new ceiling while the panel above the form showed
+  // the old one.
+  if (editedId) {
+    selectedEnvelope.value = (envelopes.value ?? []).find((row) => row.id === editedId) ?? null
+  }
+}
 
 function openDrawer(envelope: BudgetEnvelopeLedger) {
   selectedEnvelope.value = envelope
@@ -214,6 +226,8 @@ function formatDate(isoDate: string) {
             <li v-if="journal.length === 0" class="text-[11px] font-medium text-ink-muted">Aucun mouvement ce mois-ci.</li>
           </ul>
         </div>
+
+        <EnvelopeEditForm :envelope="selectedEnvelope" @saved="onEnvelopeSaved" />
       </div>
     </DetailDrawer>
   </div>

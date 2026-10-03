@@ -15,7 +15,7 @@ async function loadAll() {
 }
 
 const newCategory = reactive({ name: '', emoji: '' })
-const newEnvelope = reactive({ name: '', emoji: '' })
+const newEnvelope = reactive({ name: '', emoji: '', ceiling: '' })
 const newIncomeType = reactive({ name: '', emoji: '' })
 const newAccount = reactive({ name: '', emoji: '' })
 
@@ -43,10 +43,19 @@ async function addEnvelope() {
   try {
     await $fetch('/api/envelopes', {
       method: 'POST',
-      body: { name: newEnvelope.name, emoji: newEnvelope.emoji, kind: 'budget', defaultCeiling: 0 },
+      body: {
+        name: newEnvelope.name,
+        emoji: newEnvelope.emoji,
+        kind: 'budget',
+        // Was hardcoded to 0, which made every envelope created in the app permanently
+        // overspent with no way to fix it. Blank still means 0, but it is now a choice.
+        // The comma is normalised the way the other forms in this app do it.
+        defaultCeiling: (newEnvelope.ceiling || '0').trim().replace(',', '.'),
+      },
     })
     newEnvelope.name = ''
     newEnvelope.emoji = ''
+    newEnvelope.ceiling = ''
     await loadAll()
   } catch {
     errorMessage.value = 'Une erreur est survenue. Réessayez.'
@@ -141,6 +150,7 @@ async function archive(endpoint: string, id: string) {
       <div class="mt-3 flex gap-2">
         <input v-model="newEnvelope.emoji" placeholder="👜" class="w-12 rounded-lg border border-divider px-2 py-1 text-center">
         <input v-model="newEnvelope.name" placeholder="Nouvelle enveloppe" class="flex-1 rounded-lg border border-divider px-2 py-1">
+        <input v-model="newEnvelope.ceiling" inputmode="decimal" placeholder="Plafond" class="w-24 rounded-lg border border-divider px-2 py-1">
         <button type="button" class="rounded-lg bg-ink px-3 py-1 text-white" @click="addEnvelope">Ajouter</button>
       </div>
     </section>
