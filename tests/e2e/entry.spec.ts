@@ -1,18 +1,13 @@
 import { test, expect } from '@playwright/test'
 
+const hasSeedCredentials = Boolean(process.env.SEED_USER_EMAIL)
+  && Boolean(process.env.SEED_USER_PASSWORD)
+  && Boolean(process.env.SUPABASE_URL)
+  && Boolean(process.env.SUPABASE_ANON_KEY)
+
 test('adds a category from the Paramètres page', async ({ page }) => {
-  const email = process.env.SEED_USER_EMAIL
-  const password = process.env.SEED_USER_PASSWORD
-  const hasRealSupabaseConfig = Boolean(process.env.SUPABASE_URL) && Boolean(process.env.SUPABASE_ANON_KEY)
-
-  test.skip(!email || !password || !hasRealSupabaseConfig, 'SEED_USER_EMAIL, SEED_USER_PASSWORD, SUPABASE_URL, and SUPABASE_ANON_KEY must all be set to run this test')
-
-  await page.goto('/login')
-  await page.waitForLoadState('networkidle')
-  await page.getByLabel('Email').fill(email!)
-  await page.getByLabel('Mot de passe').fill(password!)
-  await page.getByRole('button', { name: 'Se connecter' }).click()
-  await expect(page).toHaveURL('http://localhost:3000/')
+  // The session comes from the setup project's single login; see tests/e2e/auth.setup.ts.
+  test.skip(!hasSeedCredentials, 'Requires a real Supabase project and seed user')
 
   await page.goto('/parametres')
   await expect(page).toHaveURL('http://localhost:3000/parametres')

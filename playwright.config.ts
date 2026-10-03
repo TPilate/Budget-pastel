@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { STORAGE_STATE } from './tests/e2e/storage-state'
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -19,7 +20,18 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3000',
   },
+  // Supabase rate-limits password grants: six concurrent logins returns 429 for four of
+  // them, and a full run doing one grant per test tripped the limit even at two workers,
+  // failing tests at the login step for reasons unrelated to what they tested. The setup
+  // project logs in ONCE and every other spec reuses that session.
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
+      dependencies: ['setup'],
+      // auth.spec.ts tests the login flow itself, so it must start signed out.
+      testIgnore: /auth\.setup\.ts/,
+    },
   ],
 })

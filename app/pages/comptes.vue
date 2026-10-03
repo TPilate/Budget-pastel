@@ -13,7 +13,7 @@ interface AccountsOverview {
   variableSpend: { id: string, name: string, spent: number, ceiling: number }[]
 }
 
-const { data: overview, error } = await useFetch<AccountsOverview>('/api/accounts/overview', {
+const { data: overview, error, refresh } = await useFetch<AccountsOverview>('/api/accounts/overview', {
   key: 'accounts-overview',
 })
 
@@ -125,7 +125,7 @@ const hasNoRecordedBalances = computed(() => {
                 <span :class="line.isSettled ? 'font-semibold text-ink' : 'text-ink-faint'">
                   {{ line.isSettled ? '✓' : '○' }} {{ line.name }}
                 </span>
-                <span class="font-semibold text-ink">{{ formatEuro(line.amount) }}</span>
+                <FixedChargeAmount :category-id="line.id" :amount="line.amount" @saved="refresh()" />
               </li>
             </ul>
           </div>

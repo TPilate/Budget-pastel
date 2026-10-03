@@ -1,16 +1,15 @@
 import { test, expect } from '@playwright/test'
 
-const email = process.env.SEED_USER_EMAIL
-const password = process.env.SEED_USER_PASSWORD
-const hasRealSupabaseConfig = Boolean(process.env.SUPABASE_URL) && Boolean(process.env.SUPABASE_ANON_KEY)
+const hasSeedCredentials = Boolean(process.env.SEED_USER_EMAIL)
+  && Boolean(process.env.SEED_USER_PASSWORD)
+  && Boolean(process.env.SUPABASE_URL)
+  && Boolean(process.env.SUPABASE_ANON_KEY)
 
 test.beforeEach(async ({ page }) => {
-  test.skip(!email || !password || !hasRealSupabaseConfig, 'Requires a real Supabase project and seed user')
-  await page.goto('/login')
-  await page.getByLabel('Email').fill(email!)
-  await page.getByLabel('Mot de passe').fill(password!)
-  await page.getByRole('button', { name: 'Se connecter' }).click()
-  await expect(page).toHaveURL('http://localhost:3000/')
+  // The session comes from the setup project's single login; see tests/e2e/auth.setup.ts.
+  // The navigation used to come free with that login's redirect, so it is explicit now.
+  test.skip(!hasSeedCredentials, 'Requires a real Supabase project and seed user')
+  await page.goto('/')
 })
 
 test('renders the four KPI cards and survives a reload', async ({ page }) => {
@@ -49,7 +48,9 @@ test('serves a coherent dashboard payload to a signed-in session', async ({ page
 })
 
 test('does not reach the dashboard endpoint without a session', async ({ browser }) => {
-  const fresh = await browser.newContext()
+  // Explicitly signed out: browser.newContext() inherits the project's storageState, so
+  // without this it would carry the shared session and get 200 instead of 401.
+  const fresh = await browser.newContext({ storageState: { cookies: [], origins: [] } })
   const response = await fresh.request.get('http://localhost:3000/api/dashboard')
   expect(response.status()).toBe(401)
   await fresh.close()

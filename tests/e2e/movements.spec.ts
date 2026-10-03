@@ -10,21 +10,14 @@ import { test, expect } from '@playwright/test'
 // works, second load hangs forever" (a leaked Postgres pool connection), so a single
 // successful load proves nothing about the bug this migration removes.
 
-const email = process.env.SEED_USER_EMAIL
-const password = process.env.SEED_USER_PASSWORD
-const hasRealSupabaseConfig = Boolean(process.env.SUPABASE_URL) && Boolean(process.env.SUPABASE_ANON_KEY)
+const hasSeedCredentials = Boolean(process.env.SEED_USER_EMAIL)
+  && Boolean(process.env.SEED_USER_PASSWORD)
+  && Boolean(process.env.SUPABASE_URL)
+  && Boolean(process.env.SUPABASE_ANON_KEY)
 
-test.beforeEach(async ({ page }) => {
-  test.skip(
-    !email || !password || !hasRealSupabaseConfig,
-    'SEED_USER_EMAIL, SEED_USER_PASSWORD, SUPABASE_URL and SUPABASE_ANON_KEY must all be set against a real Supabase project',
-  )
-
-  await page.goto('/login')
-  await page.getByLabel('Email').fill(email!)
-  await page.getByLabel('Mot de passe').fill(password!)
-  await page.getByRole('button', { name: 'Se connecter' }).click()
-  await expect(page).toHaveURL('http://localhost:3000/')
+test.beforeEach(() => {
+  // The session comes from the setup project's single login; see tests/e2e/auth.setup.ts.
+  test.skip(!hasSeedCredentials, 'Requires a real Supabase project and seed user')
 })
 
 test('the authenticated session reaches the Data API through RLS', async ({ page }) => {

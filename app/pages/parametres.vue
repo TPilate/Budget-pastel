@@ -14,7 +14,7 @@ async function loadAll() {
   await Promise.all([refreshCategories(), refreshEnvelopes(), refreshIncomeTypes(), refreshAccounts()])
 }
 
-const newCategory = reactive({ name: '', emoji: '' })
+const newCategory = reactive({ name: '', emoji: '', isFixed: false, target: '' })
 const newEnvelope = reactive({ name: '', emoji: '', ceiling: '' })
 const newIncomeType = reactive({ name: '', emoji: '' })
 const newAccount = reactive({ name: '', emoji: '' })
@@ -27,10 +27,21 @@ async function addCategory() {
   try {
     await $fetch('/api/categories', {
       method: 'POST',
-      body: { name: newCategory.name, emoji: newCategory.emoji, isFixed: false },
+      body: {
+        name: newCategory.name,
+        emoji: newCategory.emoji,
+        // isFixed was hardcoded false, so a fixed charge could never be created from the
+        // app at all — the ones on /comptes exist only because the seed script made them.
+        isFixed: newCategory.isFixed,
+        // Blank still means 0, but it is now a choice. Comma normalised like every other
+        // amount field here.
+        defaultTarget: (newCategory.target || '0').trim().replace(',', '.'),
+      },
     })
     newCategory.name = ''
     newCategory.emoji = ''
+    newCategory.isFixed = false
+    newCategory.target = ''
     await loadAll()
   } catch {
     errorMessage.value = 'Une erreur est survenue. Réessayez.'
@@ -131,6 +142,10 @@ async function archive(endpoint: string, id: string) {
       <div class="mt-3 flex gap-2">
         <input v-model="newCategory.emoji" placeholder="🛒" class="w-12 rounded-lg border border-divider px-2 py-1 text-center">
         <input v-model="newCategory.name" placeholder="Nouvelle catégorie" class="flex-1 rounded-lg border border-divider px-2 py-1">
+        <input v-model="newCategory.target" inputmode="decimal" placeholder="Montant" class="w-24 rounded-lg border border-divider px-2 py-1">
+        <label class="flex items-center gap-1 text-[11.5px] font-semibold text-ink-muted">
+          <input v-model="newCategory.isFixed" type="checkbox"> Charge fixe
+        </label>
         <button type="button" class="rounded-lg bg-ink px-3 py-1 text-white" @click="addCategory">Ajouter</button>
       </div>
     </section>

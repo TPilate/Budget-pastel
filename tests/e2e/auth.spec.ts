@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test'
 
+// This spec tests the login flow itself, so it must NOT reuse the shared signed-in
+// session that every other spec gets from the setup project.
+test.use({ storageState: { cookies: [], origins: [] } })
+
 test('redirects an unauthenticated visitor to the login page', async ({ page }) => {
   await page.goto('/')
   await expect(page).toHaveURL(/\/login$/)
