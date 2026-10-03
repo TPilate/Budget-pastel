@@ -27,7 +27,7 @@ const { data: dashboard, error, refresh } = await useFetch<DashboardPayload>('/a
 })
 
 interface SavingsGoal { id: string, name: string }
-const { data: goals } = await useFetch<SavingsGoal[]>('/api/savings-goals', {
+const { data: goals, error: goalsError } = await useFetch<SavingsGoal[]>('/api/savings-goals', {
   key: 'savings-goals-for-dashboard',
   default: () => [],
 })
@@ -39,7 +39,7 @@ const hasIncome = computed(() => (dashboard.value?.income.received ?? 0) > 0)
 
 const SLICE_LABEL: Record<SliceKey, string> = {
   fixed: 'Charges fixes',
-  envelope: 'Enveloppes',
+  envelope: 'Dépenses enveloppes',
   variable: 'Variables',
   savings: 'Épargne',
   unspent: 'Non dépensé',
@@ -300,6 +300,10 @@ async function recordSavings() {
           <h2 class="text-[13.5px] font-extrabold text-ink">Épargne</h2>
           <p class="pt-1 text-2xl font-extrabold text-ink">{{ formatEuroShort(dashboard.savings.total) }}
             <span class="text-[11.5px] font-semibold text-ink-faint">versés ce mois</span>
+          </p>
+
+          <p v-if="goalsError" class="pt-2 text-[11.5px] font-semibold text-warn-ink">
+            Impossible de charger les objectifs d'épargne. Le formulaire ci-dessous est indisponible.
           </p>
 
           <ul v-if="dashboard.savings.byGoal.length" class="flex flex-col pt-3">

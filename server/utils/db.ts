@@ -16,8 +16,16 @@ if (!connectionString) {
 //
 // The worst offender used to be fetchMovements at 6 parallel queries, which is why max:5
 // made /api/movements queue even when healthy. That module now reads through the Supabase
-// Data API and no longer uses this pool at all. The remaining ceiling is
-// envelopeJournalQuery/envelopeCeilingsQuery at ~5-6, so max:12 keeps real headroom.
+// Data API and no longer uses this pool at all.
+//
+// The heaviest consumer now is /api/dashboard (server/utils/dashboardQuery.ts): it serialises
+// listBudgetEnvelopeLedgers (5 queries) and listReserveEnvelopeBalances (3 queries) one after
+// the other instead of running them concurrently, so it holds at most 5 pool slots at a time,
+// not 8. On top of that, AppSidebar's SidebarCeilingsWidget calls /api/envelopes/ceilings on
+// every page render, adding up to 5 more concurrent slots. max:12 covers one dashboard request
+// plus one sidebar widget request with a little room, not much more — it is not a generous
+// margin, and a second concurrent dashboard request (e.g. two tabs, or the post-save refresh()
+// in index.vue) can still push close to the ceiling.
 //
 // idle_timeout/max_lifetime bound how long a connection is held. max_lifetime is deliberately
 // short: if a connection ever does get wedged, it caps how long it can poison the pool.

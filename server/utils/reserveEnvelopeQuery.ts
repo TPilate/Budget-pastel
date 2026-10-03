@@ -13,11 +13,11 @@ export interface ReserveEnvelopeBalance {
 }
 
 export async function listReserveEnvelopeBalances(): Promise<ReserveEnvelopeBalance[]> {
-  const reserveEnvelopes = await db
+  const reserveEnvelopes = await withDbTimeout(db
     .select()
     .from(envelopes)
     .where(and(eq(envelopes.kind, 'reserve'), isNull(envelopes.archivedAt)))
-    .orderBy(asc(envelopes.sortOrder))
+    .orderBy(asc(envelopes.sortOrder)))
 
   if (reserveEnvelopes.length === 0) return []
 

@@ -38,6 +38,12 @@ test('serves a coherent dashboard payload to a signed-in session', async ({ page
     savings.byGoal.reduce((sum: number, g: any) => sum + g.amount, 0), 2)
   expect(envelopes.overspentCount).toBeLessThanOrEqual(envelopes.cards.length)
 
+  // Month-independent discriminator (F5): envelopes are not month-scoped, so this
+  // holds regardless of the calendar and fails if listBudgetEnvelopeLedgers breaks —
+  // unlike the sliceTotal/income.received check above, which holds trivially (0 ≈ 0)
+  // against an empty month.
+  expect(envelopes.cards.length).toBeGreaterThan(0)
+
   // No percentage may be NaN, whatever the data.
   for (const slice of summary.slices) expect(Number.isNaN(slice.percent)).toBe(false)
 })

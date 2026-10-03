@@ -159,6 +159,34 @@ describe('fetchDashboard', () => {
     expect(payload.envelopes.cards[0].incomeCreditsTotal).toBe(20)
   })
 
+  it('intentionally diverges: the donut envelope slice is gross spend, the KPI total is net of credits', async () => {
+    // F3: partitionExpenses (donut) counts every envelope expense gross, including the
+    // credit-funded portion; the ledger (KPI card) reports netSpent, i.e. gross minus the
+    // income credit. Both are correct for what they measure, they are just not the same
+    // number, and app/pages/index.vue now labels them differently (`Dépenses enveloppes`
+    // vs `Enveloppes`) so this file documents the gap rather than hiding it.
+    mocks.responseByTable.income_entries = {
+      data: [{ amount: '1000.00', expected_amount: null, target_envelope_id: null }],
+      error: null,
+    }
+    mocks.responseByTable.expense_entries = {
+      data: [
+        { amount: '102.00', envelope_id: 'e1', financed_by: 'budget', categories: { is_fixed: false, fifty_thirty_twenty_bucket: 'envies' }, envelopes: { fifty_thirty_twenty_bucket: 'envies' } },
+      ],
+      error: null,
+    }
+    ledgerMock.mockResolvedValue([
+      { id: 'e1', name: 'Restaurants', emoji: '🍽️', showOnHome: true, ceiling: 130, netSpent: 82, remaining: 48, subtitle: null, incomeCreditsTotal: 20 },
+    ])
+
+    const payload = await fetchDashboard(fakeEvent(), 2026, 9, new Date(2026, 8, 20))
+
+    const envelopeSlice = payload.summary.slices.find((slice) => slice.key === 'envelope')
+    expect(envelopeSlice?.amount).toBe(102)
+    expect(payload.envelopes.totalNetSpent).toBe(82)
+    expect(envelopeSlice!.amount - payload.envelopes.totalNetSpent).toBe(20)
+  })
+
   it('keeps only the five most recent movements', async () => {
     movementsMock.mockResolvedValue(Array.from({ length: 9 }, (_, i) => ({ id: `m${i}` })))
     const payload = await fetchDashboard(fakeEvent(), 2026, 9, new Date(2026, 8, 20))

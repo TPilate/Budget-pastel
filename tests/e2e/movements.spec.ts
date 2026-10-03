@@ -28,14 +28,18 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('the authenticated session reaches the Data API through RLS', async ({ page }) => {
-  const response = await page.request.get('/api/movements')
+  // Pinned to the seed data's month (September 2026) via the explicit year/month query
+  // params, rather than the current calendar month: the seed rows do not move, but the
+  // system date does, and this test's only job is to catch a broken RLS/JWT path, not
+  // to notice a new month.
+  const response = await page.request.get('/api/movements?year=2026&month=9')
 
   expect(response.status()).toBe(200)
   const movements = await response.json()
   expect(Array.isArray(movements)).toBe(true)
 
-  // The seeded database has expense_entries rows for the current month. An empty
-  // array here is the RLS/JWT failure this test is built to catch, not a pass.
+  // The seeded database has expense_entries rows for September 2026. An empty array
+  // here is the RLS/JWT failure this test is built to catch, not a pass.
   expect(movements.length).toBeGreaterThan(0)
   expect(movements[0]).toMatchObject({
     id: expect.any(String),
