@@ -23,6 +23,9 @@ vi.mock('../../../../server/utils/db', () => ({
       from: vi.fn(() => Promise.resolve(dbState.existingSortOrders)),
     })),
   },
+  // Pass-through: the pool-wait timeout itself is covered by db.test.ts, and these tests are
+  // about the sort_order the handler computes.
+  withDbTimeout: <T>(promise: Promise<T>) => promise,
 }))
 
 const authState = vi.hoisted(() => ({

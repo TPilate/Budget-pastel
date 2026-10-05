@@ -25,7 +25,12 @@ const chain: any = vi.hoisted(() => {
   return c
 })
 
-vi.mock('../../../../server/utils/db', () => ({ db: chain }))
+// withDbTimeout passes the promise straight through here: these tests are about what
+// referenceCrud writes and returns, not about the pool-wait timeout, which db.test.ts owns.
+vi.mock('../../../../server/utils/db', () => ({
+  db: chain,
+  withDbTimeout: <T>(promise: Promise<T>) => promise,
+}))
 
 import { listActiveRows, insertRow, patchRow } from '../../../../server/utils/referenceCrud'
 

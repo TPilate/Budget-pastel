@@ -1,7 +1,7 @@
 import { requireUser } from '../../utils/auth'
 import { insertRow } from '../../utils/referenceCrud'
 import { validateBody } from '../../utils/validateBody'
-import { db } from '../../utils/db'
+import { db, withDbTimeout } from '../../utils/db'
 import { savingsGoals } from '../../../drizzle/schema'
 import { savingsGoalInputSchema } from '../../../shared/schemas/savingsGoal'
 
@@ -13,7 +13,9 @@ export default defineEventHandler(async (event) => {
   // first seeded poche and make list order unstable between renders. There are only ever a
   // handful of poches, so reading them all to find the current maximum is simpler than a
   // database-side aggregate for a table this small.
-  const existing = await db.select({ sortOrder: savingsGoals.sortOrder }).from(savingsGoals)
+  // withDbTimeout because this is a pool-backed read: the pool's wait queue is untimed, so
+  // an unwrapped call hangs the request forever instead of erroring when slots run out.
+  const existing = await withDbTimeout(db.select({ sortOrder: savingsGoals.sortOrder }).from(savingsGoals))
   const nextSortOrder = existing.reduce((max, row) => Math.max(max, row.sortOrder), -1) + 1
 
   // Drizzle's numeric columns take strings; the schema has already coerced and validated
