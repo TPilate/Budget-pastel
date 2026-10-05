@@ -159,6 +159,7 @@ RLS needs no work: `savings_goals` is already covered by the `authenticated` pol
 ```ts
 interface EpargnePayload {
   month: { year: number, month: number, label: string }
+  income: { received: number }
   poches: PocheView[]
   totals: { balance: number, monthly: number, monthsOfChargesCovered: number | null }
   history: { year: number, month: number, label: string, amount: number }[]
@@ -174,10 +175,23 @@ interface EpargnePayload {
 `POST /api/savings-goals` and `PATCH /api/savings-goals/[id]` create and edit poches,
 following the existing `requireUser` → `validateBody` → `insertRow`/`patchRow` pattern.
 
-**Reused unchanged, not reimplemented:** `compute503020` and `partitionExpenses` from
-`server/utils/domain/dashboard.ts` for the 50/30/20 panel, `summariseFixedCharges` from
-`server/utils/domain/accountsOverview.ts` for the charges divisor, and `fetchSavings` from
-`server/utils/savingsQuery.ts`.
+`income.received` is carried explicitly because the page cannot infer "no income yet" from
+the 50/30/20 actuals: those are zero both when nothing has been earned and when nothing has
+been spent, and only the first case should swap the panel for a prompt.
+
+**Reused unchanged, not reimplemented:** `compute503020` from
+`server/utils/domain/dashboard.ts` for the 50/30/20 panel, and `summariseFixedCharges` from
+`server/utils/domain/accountsOverview.ts` for the charges divisor.
+
+**Deliberately *not* reused, despite the obvious names:**
+- `partitionExpenses` — `compute503020` takes `taggedSpend`, not a partition. The besoins /
+  envies partition feeds the *dashboard's* expense breakdown, and `EpargnePayload` has no
+  such field, so computing one here would be dead work.
+- `fetchSavings` from `server/utils/savingsQuery.ts` — it is month-scoped
+  (`fetchSavings(event, year, month)`), while §3.1 needs each poche's balance to sum **all**
+  entries for all time: the design's 5 184 € is a running total, not a month's figure. This
+  route reads `savings_entries` unfiltered and derives the month's rows in memory, which
+  also avoids a second round trip.
 
 **Pool budget.** This route needs the fixed-charge categories and the month's expenses,
 both of which already come from the Data API on `/comptes`. It must **not** call
