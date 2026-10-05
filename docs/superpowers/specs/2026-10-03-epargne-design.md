@@ -211,10 +211,13 @@ key, and a visible error branch distinct from an empty state, as every other pag
   bar; a poche with no target shows no bar. Each card edits inline — name, note, montant
   mensuel, objectif — through a small `PocheEditForm` component rather than inline markup,
   keeping the page readable.
-- **Six derniers mois:** a hand-rolled SVG bar chart. Six bars do not justify a chart
-  dependency, matching the decision made for the dashboard donut. The tallest bar scales
-  to the maximum in the window; an all-zero window renders flat bars with their labels
-  rather than dividing by zero.
+- **Six derniers mois:** a hand-rolled bar chart, built from flex-sized `<div>` bars. Six
+  bars do not justify a charting dependency, which is the same call made for the dashboard
+  donut — but the donut uses SVG out of necessity, because arcs cannot be drawn with divs,
+  not as a house style for every chart. Plain divs need no viewBox arithmetic and reflow
+  with the card, so they are the simpler choice for bars. The tallest bar scales to the
+  maximum in the window; an all-zero window renders flat bars with their labels rather than
+  dividing by zero.
 - **Règle 50 / 30 / 20:** targets against actuals, plus the gap advice when there is any.
 - **Versements du mois:** the contribution and variance rows from §3.5.
 - **Sidebar-style total:** `Épargne totale`, `+{month} € ce mois`, and the months-covered
