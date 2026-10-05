@@ -57,3 +57,27 @@ describe('milestone 6 schema additions', () => {
     expect(accounts.kind.enumValues).toEqual(['courant', 'epargne'])
   })
 })
+
+import { savingsGoals } from '../../drizzle/schema'
+
+describe('savings goal poche columns', () => {
+  it('carries a nullable target, so a poche without an objective is valid', () => {
+    // The design shows "sans échéance" — a poche with no target is a real state, and the
+    // page renders it with no progress bar rather than dividing by zero.
+    expect(savingsGoals.targetAmount).toBeDefined()
+    expect(savingsGoals.targetAmount.notNull).toBe(false)
+  })
+
+  it('carries a monthly amount that defaults rather than being null', () => {
+    // It is summed for the header's "X € répartis chaque mois", so a null would poison
+    // that total. Existing rows must become 0, not null.
+    expect(savingsGoals.monthlyAmount).toBeDefined()
+    expect(savingsGoals.monthlyAmount.notNull).toBe(true)
+    expect(savingsGoals.monthlyAmount.hasDefault).toBe(true)
+  })
+
+  it('carries a nullable note for the subtitle line', () => {
+    expect(savingsGoals.note).toBeDefined()
+    expect(savingsGoals.note.notNull).toBe(false)
+  })
+})

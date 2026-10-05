@@ -50,4 +50,10 @@ export const savingsGoals = pgTable('savings_goals', {
   name: text('name').notNull(),
   receivesSalaryVariance: boolean('receives_salary_variance').notNull().default(false),
   sortOrder: integer('sort_order').notNull().default(0),
+  // The three things each poche shows that the table could not express: its objective,
+  // its recurring monthly contribution, and the subtitle line ("sans échéance",
+  // "voyage au printemps"). target_amount is nullable because a poche need not have one.
+  targetAmount: numeric('target_amount', { precision: 10, scale: 2 }),
+  monthlyAmount: numeric('monthly_amount', { precision: 10, scale: 2 }).notNull().default('0'),
+  note: text('note'),
 })
