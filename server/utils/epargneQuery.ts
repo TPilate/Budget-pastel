@@ -9,7 +9,7 @@ import {
   monthContributions,
 } from './domain/savings'
 import type { PocheView, ContributionRow } from './domain/savings'
-import { partitionExpenses, summariseIncome, compute503020 } from './domain/dashboard'
+import { summariseIncome, compute503020 } from './domain/dashboard'
 import type { Bucket5030 } from './domain/dashboard'
 import { summariseFixedCharges } from './domain/accountsOverview'
 
@@ -113,12 +113,6 @@ export async function fetchEpargne(
   })))
 
   const expenseRows = (expenseRes.data ?? []) as any[]
-  const partition = partitionExpenses(expenseRows.map((row) => ({
-    amount: Number(row.amount),
-    envelopeId: row.envelope_id ?? null,
-    categoryIsFixed: Boolean(unwrap<any>(row.categories)?.is_fixed),
-    financedBy: row.financed_by,
-  })))
 
   const monthEntries = allEntries.filter((entry) => entry.year === year && entry.month === month)
   const savedThisMonth = monthEntries.reduce((sum, entry) => sum + entry.amount, 0)

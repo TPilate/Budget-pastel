@@ -135,4 +135,16 @@ describe('fetchEpargne', () => {
     mocks.responseByTable.savings_goals = { data: null, error: { message: 'permission denied for table savings_goals' } }
     await expect(fetchEpargne(fakeEvent(), 2026, 10, 6)).rejects.toThrow(/savings_goals/)
   })
+
+  it('throws rather than returning a partial payload when the entries request fails', async () => {
+    mocks.responseByTable.savings_entries = { data: null, error: { message: 'permission denied for table savings_entries' } }
+    await expect(fetchEpargne(fakeEvent(), 2026, 10, 6)).rejects.toThrow(/savings_entries/)
+  })
+
+  it('omits months-of-charges-covered rather than dividing by zero when there are no fixed categories', async () => {
+    // categories is empty by default in this suite, so monthlyFixedCharges is 0: the
+    // sidebar must omit the line rather than render Infinity.
+    const payload = await fetchEpargne(fakeEvent(), 2026, 10, 6)
+    expect(payload.totals.monthsOfChargesCovered).toBeNull()
+  })
 })
