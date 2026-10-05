@@ -13,6 +13,18 @@ vi.mock('../../../../server/utils/referenceCrud', () => ({
   patchRow: vi.fn(async (_table: any, id: string, values: any) => { crud.patched.push({ id, values }); return { id, ...values } }),
 }))
 
+// The create handler reads existing sort_order values to place a new poche at the end of
+// the list; this fakes just that read so the handler's own insertRow call above (not this
+// mock) stays the thing each test asserts on.
+const dbState = vi.hoisted(() => ({ existingSortOrders: [] as { sortOrder: number }[] }))
+vi.mock('../../../../server/utils/db', () => ({
+  db: {
+    select: vi.fn(() => ({
+      from: vi.fn(() => Promise.resolve(dbState.existingSortOrders)),
+    })),
+  },
+}))
+
 const authState = vi.hoisted(() => ({
   requireUser: vi.fn(async () => ({ id: 'user-1', email: null })),
 }))
@@ -44,6 +56,7 @@ describe('POST /api/savings-goals', () => {
     crud.inserted.length = 0
     crud.patched.length = 0
     routeParam.current = 'goal-1'
+    dbState.existingSortOrders = []
     authState.requireUser.mockReset()
     authState.requireUser.mockResolvedValue({ id: 'user-1', email: null })
   })
@@ -54,6 +67,26 @@ describe('POST /api/savings-goals', () => {
 
     await expect(postHandler(fakeEvent())).rejects.toMatchObject({ statusCode: 401 })
     expect(crud.inserted).toHaveLength(0)
+  })
+
+  it('places a new poche after every existing one, instead of tying at the sort_order default', async () => {
+    // Without this, every created poche gets the column's default (0) and ties with the
+    // first seeded row, leaving list order unstable between renders.
+    dbState.existingSortOrders = [{ sortOrder: 0 }, { sortOrder: 3 }, { sortOrder: 1 }]
+    inputState.current = { name: 'Vacances' }
+
+    await postHandler(fakeEvent())
+
+    expect(crud.inserted[0].sortOrder).toBe(4)
+  })
+
+  it('gives the very first poche sort_order 0 when none exist yet', async () => {
+    dbState.existingSortOrders = []
+    inputState.current = { name: 'Vacances' }
+
+    await postHandler(fakeEvent())
+
+    expect(crud.inserted[0].sortOrder).toBe(0)
   })
 
   it('writes amounts as strings, because Drizzle numeric columns reject numbers', async () => {

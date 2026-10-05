@@ -43,9 +43,20 @@ test('serves a coherent payload, with no NaN at zero income', async ({ page }) =
   expect(response.status()).toBe(200)
   const payload = await response.json()
 
-  // The poche balances must sum to the headline total.
-  const summed = payload.poches.reduce((total: number, poche: any) => total + poche.balance, 0)
-  expect(payload.totals.balance).toBeCloseTo(summed, 2)
+  // Cross-endpoint coherence, not a tautology: the previous version of this test summed
+  // poches.balance and compared it to totals.balance, but server/utils/domain/savings.ts
+  // computes totalBalance with that exact reduce, so the check held for any input at all
+  // (including an empty poches array). /api/accounts/overview derives fixedCharges.total
+  // from the same categories table independently, so checking monthsOfChargesCovered
+  // against it exercises a real integration between two endpoints instead.
+  const overview = await (await page.request.get('/api/accounts/overview')).json()
+  if (overview.fixedCharges.total > 0) {
+    const expectedMonths = Math.round((payload.totals.balance / overview.fixedCharges.total) * 10) / 10
+    expect(payload.totals.monthsOfChargesCovered).toBeCloseTo(expectedMonths, 5)
+  }
+  else {
+    expect(payload.totals.monthsOfChargesCovered).toBeNull()
+  }
 
   for (const value of Object.values(payload.ruleOfThumb.actuals)) {
     expect(Number.isNaN(value as number)).toBe(false)
@@ -74,64 +85,84 @@ test('a poche can be created and edited through its own form, moving the progres
   expect(created.monthlyAmount).toBe(25)
   expect(created.targetAmount).toBe(500)
 
-  // Give the poche a real balance: freshly created, it has none, and moving its objective
-  // against a zero balance would leave the progress bar at 0 % either way, proving nothing.
-  await page.request.post('/api/savings', {
-    data: { savingsGoalId: created.id, year: payload.month.year, month: payload.month.month, amount: 300 },
-  })
-  await page.reload()
-  await expect(page.getByRole('heading', { name: 'Épargne' })).toBeVisible({ timeout: 15_000 })
-  await page.waitForFunction(
-    () => Boolean((document.querySelector('#__nuxt') as any)?.__vue_app__),
-    undefined,
-    { timeout: 20_000 },
-  )
-  const reloadedRow = page.locator('li').filter({ hasText: name })
+  // No delete endpoint exists for a poche (deliberately out of scope), so everything this
+  // test seeds — the poche itself and its savings entry — must be neutralised before the
+  // test ends, or re-running this suite leaves permanent residue in the live database (see
+  // enveloppes.spec.ts and comptes-edit.spec.ts, which restore what they touch for the same
+  // reason). try/finally so the cleanup still runs if an assertion below fails partway —
+  // that failure mode is exactly how residue accumulated before.
+  try {
+    // Give the poche a real balance: freshly created, it has none, and moving its objective
+    // against a zero balance would leave the progress bar at 0 % either way, proving nothing.
+    await page.request.post('/api/savings', {
+      data: { savingsGoalId: created.id, year: payload.month.year, month: payload.month.month, amount: 300 },
+    })
+    await page.reload()
+    await expect(page.getByRole('heading', { name: 'Épargne' })).toBeVisible({ timeout: 15_000 })
+    await page.waitForFunction(
+      () => Boolean((document.querySelector('#__nuxt') as any)?.__vue_app__),
+      undefined,
+      { timeout: 20_000 },
+    )
+    const reloadedRow = page.locator('li').filter({ hasText: name })
 
-  // Open the poche's own edit form through its real control — the component this task
-  // exists to build — rather than bypassing it with a direct API call. A PATCH request
-  // alone would give the hydration guard, the comma normalisation and the submit/error UI
-  // zero browser coverage, which is exactly the "test passes while asserting nothing real"
-  // pattern this repo has shipped before (a substring-matched link, a drawer test that
-  // passed with the drawer shut).
-  await reloadedRow.getByRole('button', { name }).click()
-  const objectifField = reloadedRow.getByLabel('Objectif')
-  // A field this form owns, not arbitrary text that could match elsewhere on the page —
-  // proves the form actually opened.
-  await expect(objectifField).toBeVisible({ timeout: 10_000 })
-  // Enabled, not just present: a regression in the isHydrated guard must fail this test
-  // rather than being silently raced by `fill`.
-  await expect(objectifField).toBeEnabled()
+    // Open the poche's own edit form through its real control — the component this task
+    // exists to build — rather than bypassing it with a direct API call. A PATCH request
+    // alone would give the hydration guard, the comma normalisation and the submit/error UI
+    // zero browser coverage, which is exactly the "test passes while asserting nothing real"
+    // pattern this repo has shipped before (a substring-matched link, a drawer test that
+    // passed with the drawer shut).
+    await reloadedRow.getByRole('button', { name }).click()
+    const objectifField = reloadedRow.getByLabel('Objectif')
+    // A field this form owns, not arbitrary text that could match elsewhere on the page —
+    // proves the form actually opened.
+    await expect(objectifField).toBeVisible({ timeout: 10_000 })
+    // Enabled, not just present: a regression in the isHydrated guard must fail this test
+    // rather than being silently raced by `fill`.
+    await expect(objectifField).toBeEnabled()
 
-  const barBefore = await reloadedRow.locator('.bg-mint-bar').getAttribute('style')
+    const barBefore = await reloadedRow.locator('.bg-mint-bar').getAttribute('style')
 
-  // French decimal comma, exercised end to end through the real input and submit button:
-  // this normalisation has 400'd the server twice and nothing before this covered it in
-  // a browser.
-  await objectifField.fill('800,50')
-  await reloadedRow.getByRole('button', { name: 'Enregistrer' }).click()
-  // The form closes once the save round trip completes and the parent list refreshes —
-  // the signal to read the new bar width rather than racing the refresh.
-  await expect(objectifField).toBeHidden({ timeout: 10_000 })
+    // French decimal comma, exercised end to end through the real input and submit button:
+    // this normalisation has 400'd the server twice and nothing before this covered it in
+    // a browser.
+    await objectifField.fill('800,50')
+    await reloadedRow.getByRole('button', { name: 'Enregistrer' }).click()
+    // The form now stays open after a successful save and shows its own confirmation
+    // (the parent no longer closes it — see app/pages/epargne.vue's onPocheSaved), so that
+    // confirmation, not the field disappearing, is the signal the round trip finished.
+    await expect(reloadedRow.getByText('Enregistré')).toBeVisible({ timeout: 10_000 })
 
-  // Poll rather than read once. The form hiding means the save round trip finished, but the
-  // parent's refresh repaints the bar a moment later, so a single immediate read catches the
-  // pre-refresh width and compares it against itself. The assertion is still the real one —
-  // the bar must actually move, from balance/500 to balance/800.50 — just not raced.
-  await expect
-    .poll(() => reloadedRow.locator('.bg-mint-bar').getAttribute('style'), { timeout: 10_000 })
-    .not.toBe(barBefore)
+    // Poll rather than read once. The confirmation appearing means the save round trip
+    // finished, but the parent's refresh repaints the bar a moment later, so a single
+    // immediate read catches the pre-refresh width and compares it against itself. The
+    // assertion is still the real one — the bar must actually move, from balance/500 to
+    // balance/800.50 — just not raced.
+    await expect
+      .poll(() => reloadedRow.locator('.bg-mint-bar').getAttribute('style'), { timeout: 10_000 })
+      .not.toBe(barBefore)
 
-  // Server-side re-read proves this persisted rather than only updating local state.
-  const edited = (await (await page.request.get('/api/epargne')).json())
-    .poches.find((poche: any) => poche.id === created.id)
-  expect(edited.targetAmount).toBe(800.5)
+    // Server-side re-read proves this persisted rather than only updating local state.
+    const edited = (await (await page.request.get('/api/epargne')).json())
+      .poches.find((poche: any) => poche.id === created.id)
+    expect(edited.targetAmount).toBe(800.5)
 
-  await page.reload()
-  await expect(page.getByRole('heading', { name: 'Épargne' })).toBeVisible({ timeout: 15_000 })
-
-  // There is deliberately no delete endpoint (out of scope), so this row and its savings
-  // entry stay. Name it obviously so a human can clear both by hand.
+    await page.reload()
+    await expect(page.getByRole('heading', { name: 'Épargne' })).toBeVisible({ timeout: 15_000 })
+  }
+  finally {
+    // Neutralise rather than delete: zero the seeded savings entry (POST /api/savings
+    // upserts on goal/year/month, so re-posting amount: 0 overwrites the 300 € this test
+    // wrote), zero the poche's monthly contribution and clear its target so it cannot
+    // contribute to the page's headline figures, and rename it so a human scanning the
+    // list sees immediately that it is test residue rather than a real poche.
+    await page.request.post('/api/savings', {
+      data: { savingsGoalId: created.id, year: payload.month.year, month: payload.month.month, amount: 0 },
+    })
+    await page.request.patch(`/api/savings-goals/${created.id}`, {
+      data: { name: `zz-e2e-${name}`, monthlyAmount: 0, targetAmount: null },
+    })
+  }
 })
 
 test('does not reach the Épargne endpoint without a session', async ({ browser }) => {

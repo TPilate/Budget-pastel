@@ -34,7 +34,11 @@ function toggleEdit(id: string) {
 }
 
 async function onPocheSaved() {
-  editingId.value = null
+  // Deliberately does NOT clear editingId: the form must stay open and show its own
+  // "Enregistré" confirmation, the same way EnvelopeEditForm + enveloppes.vue work. emit
+  // ('saved') is synchronous, so closing the form here would unmount it in the same render
+  // flush that set savedAt, and the confirmation could never paint. The toggle button is
+  // still the only way to close the form.
   await refresh()
 }
 
@@ -170,7 +174,7 @@ async function createPoche() {
                 </div>
                 <div class="shrink-0 text-right">
                   <p class="text-[15px] font-extrabold text-ink">{{ formatEuroShort(poche.balance) }}</p>
-                  <p v-if="poche.targetAmount !== null" class="text-[11px] text-ink-faint">
+                  <p v-if="poche.targetAmount" class="text-[11px] text-ink-faint">
                     objectif {{ formatEuroShort(poche.targetAmount) }}
                   </p>
                   <p v-else class="text-[11px] text-ink-faint">sans objectif</p>
@@ -253,7 +257,7 @@ async function createPoche() {
           <p class="pt-1 text-2xl font-extrabold text-ink">{{ formatEuroShort(epargne.totals.balance) }}</p>
           <p class="pt-1 text-[11.5px] text-ink-faint">+{{ formatEuro(savedThisMonth) }} ce mois</p>
           <p v-if="epargne.totals.monthsOfChargesCovered !== null" class="pt-1 text-[11.5px] text-ink-faint">
-            {{ epargne.totals.monthsOfChargesCovered }} mois de charges couverts
+            {{ formatNumber(epargne.totals.monthsOfChargesCovered) }} mois de charges couverts
           </p>
         </section>
       </div>
