@@ -91,7 +91,7 @@ async function save() {
         {{ isSubmitting ? 'Enregistrement…' : 'Enregistrer' }}
       </button>
       <span v-if="savedAt && !errorMessage" class="text-[11px] font-semibold text-mint-ink">Enregistré</span>
-      <span v-if="errorMessage" class="text-[11px] font-semibold text-warn-ink">{{ errorMessage }}</span>
+      <span v-if="errorMessage" role="alert" class="text-[11px] font-semibold text-warn-ink">{{ errorMessage }}</span>
     </div>
   </form>
 </template>

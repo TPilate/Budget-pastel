@@ -74,7 +74,7 @@ async function saveIfChanged() {
 
 <template>
   <span class="flex items-center gap-1.5">
-    <span v-if="errorMessage" class="text-[10.5px] font-semibold text-warn-ink">{{ errorMessage }}</span>
+    <span v-if="errorMessage" role="alert" class="text-[10.5px] font-semibold text-warn-ink">{{ errorMessage }}</span>
     <span v-else-if="savedAt" class="text-[10.5px] font-semibold text-mint-ink">Enregistré</span>
 
     <input

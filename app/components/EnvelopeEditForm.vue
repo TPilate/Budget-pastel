@@ -124,6 +124,6 @@ async function save() {
       <span v-if="savedAt && !errorMessage" class="text-[11px] font-semibold text-mint-ink">Enregistré</span>
     </div>
 
-    <p v-if="errorMessage" class="text-[11.5px] font-semibold text-warn-ink">{{ errorMessage }}</p>
+    <p v-if="errorMessage" role="alert" class="text-[11.5px] font-semibold text-warn-ink">{{ errorMessage }}</p>
   </form>
 </template>

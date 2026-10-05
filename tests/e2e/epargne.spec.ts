@@ -55,7 +55,7 @@ test('serves a coherent payload, with no NaN at zero income', async ({ page }) =
   }
 })
 
-test('a poche can be created and then edited, and both persist', async ({ page }) => {
+test('a poche can be created and edited through its own form, moving the progress bar', async ({ page }) => {
   await openEpargne(page)
 
   const name = `Test poche ${Date.now()}`
@@ -65,22 +65,68 @@ test('a poche can be created and then edited, and both persist', async ({ page }
   await page.getByLabel('Objectif').fill('500')
   await page.getByRole('button', { name: 'Créer' }).click()
 
-  await expect(page.getByText(name)).toBeVisible({ timeout: 10_000 })
+  const row = page.locator('li').filter({ hasText: name })
+  await expect(row).toBeVisible({ timeout: 10_000 })
 
-  const created = (await (await page.request.get('/api/epargne')).json())
-    .poches.find((poche: any) => poche.name === name)
+  const payload = await (await page.request.get('/api/epargne')).json()
+  const created = payload.poches.find((poche: any) => poche.name === name)
   expect(created).toBeTruthy()
   expect(created.monthlyAmount).toBe(25)
   expect(created.targetAmount).toBe(500)
 
-  // Edit it through the API the page uses, then confirm the page reflects the change.
-  await page.request.patch(`/api/savings-goals/${created.id}`, { data: { targetAmount: 800 } })
+  // Give the poche a real balance: freshly created, it has none, and moving its objective
+  // against a zero balance would leave the progress bar at 0 % either way, proving nothing.
+  await page.request.post('/api/savings', {
+    data: { savingsGoalId: created.id, year: payload.month.year, month: payload.month.month, amount: 300 },
+  })
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Épargne' })).toBeVisible({ timeout: 15_000 })
+  await page.waitForFunction(
+    () => Boolean((document.querySelector('#__nuxt') as any)?.__vue_app__),
+    undefined,
+    { timeout: 20_000 },
+  )
+  const reloadedRow = page.locator('li').filter({ hasText: name })
+
+  // Open the poche's own edit form through its real control — the component this task
+  // exists to build — rather than bypassing it with a direct API call. A PATCH request
+  // alone would give the hydration guard, the comma normalisation and the submit/error UI
+  // zero browser coverage, which is exactly the "test passes while asserting nothing real"
+  // pattern this repo has shipped before (a substring-matched link, a drawer test that
+  // passed with the drawer shut).
+  await reloadedRow.getByRole('button', { name }).click()
+  const objectifField = reloadedRow.getByLabel('Objectif')
+  // A field this form owns, not arbitrary text that could match elsewhere on the page —
+  // proves the form actually opened.
+  await expect(objectifField).toBeVisible({ timeout: 10_000 })
+  // Enabled, not just present: a regression in the isHydrated guard must fail this test
+  // rather than being silently raced by `fill`.
+  await expect(objectifField).toBeEnabled()
+
+  const barBefore = await reloadedRow.locator('.bg-mint-bar').getAttribute('style')
+
+  // French decimal comma, exercised end to end through the real input and submit button:
+  // this normalisation has 400'd the server twice and nothing before this covered it in
+  // a browser.
+  await objectifField.fill('800,50')
+  await reloadedRow.getByRole('button', { name: 'Enregistrer' }).click()
+  // The form closes once the save round trip completes and the parent list refreshes —
+  // the signal to read the new bar width rather than racing the refresh.
+  await expect(objectifField).toBeHidden({ timeout: 10_000 })
+
+  const barAfter = await reloadedRow.locator('.bg-mint-bar').getAttribute('style')
+  expect(barAfter).not.toBe(barBefore)
+
+  // Server-side re-read proves this persisted rather than only updating local state.
   const edited = (await (await page.request.get('/api/epargne')).json())
     .poches.find((poche: any) => poche.id === created.id)
-  expect(edited.targetAmount).toBe(800)
+  expect(edited.targetAmount).toBe(800.5)
 
-  // There is deliberately no delete endpoint (out of scope), so this row stays. Name it
-  // obviously so a human can clear it; do not leave it looking like real data.
+  await page.reload()
+  await expect(page.getByRole('heading', { name: 'Épargne' })).toBeVisible({ timeout: 15_000 })
+
+  // There is deliberately no delete endpoint (out of scope), so this row and its savings
+  // entry stay. Name it obviously so a human can clear both by hand.
 })
 
 test('does not reach the Épargne endpoint without a session', async ({ browser }) => {

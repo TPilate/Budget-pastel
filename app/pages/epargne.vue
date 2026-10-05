@@ -52,6 +52,14 @@ function barHeight(amount: number) {
   return `${Math.round((amount / historyMax.value) * 100)}%`
 }
 
+// The history window always ends at the current month (monthlyHistory builds it through
+// that point), so its last entry is this month's actual contribution — distinct from
+// totals.monthly, which is the poches' planned monthlyAmount, not what was actually saved.
+const savedThisMonth = computed(() => {
+  const history = epargne.value?.history ?? []
+  return history.length ? history[history.length - 1].amount : 0
+})
+
 // --- creating a poche ---------------------------------------------------------
 const isCreating = ref(false)
 const newName = ref('')
@@ -142,7 +150,7 @@ async function createPoche() {
             <button type="submit" :disabled="isSubmittingNew || !isHydrated" class="rounded-[10px] bg-primary px-3 py-1.5 text-[12px] font-bold text-primary-ink disabled:opacity-50">
               {{ isSubmittingNew ? 'Création…' : 'Créer' }}
             </button>
-            <p v-if="createError" class="w-full text-[11.5px] font-semibold text-warn-ink">{{ createError }}</p>
+            <p v-if="createError" role="alert" class="w-full text-[11.5px] font-semibold text-warn-ink">{{ createError }}</p>
           </form>
 
           <p v-if="!epargne.poches.length" class="pt-3 text-[12.5px] text-ink-faint">
@@ -243,6 +251,7 @@ async function createPoche() {
         <section class="rounded-[18px] border border-divider bg-white p-5">
           <p class="text-[11.5px] font-semibold text-ink-faint">Épargne totale</p>
           <p class="pt-1 text-2xl font-extrabold text-ink">{{ formatEuroShort(epargne.totals.balance) }}</p>
+          <p class="pt-1 text-[11.5px] text-ink-faint">+{{ formatEuro(savedThisMonth) }} ce mois</p>
           <p v-if="epargne.totals.monthsOfChargesCovered !== null" class="pt-1 text-[11.5px] text-ink-faint">
             {{ epargne.totals.monthsOfChargesCovered }} mois de charges couverts
           </p>
