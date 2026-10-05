@@ -80,7 +80,12 @@ const testDb = vi.hoisted(() => {
   return { store, db }
 })
 
-vi.mock('../../../../server/utils/db', () => ({ db: testDb.db }))
+// withDbTimeout passes the promise through unchanged here: this suite is about the
+// read-then-write upsert logic, and the pool-wait timeout is covered by db.test.ts.
+vi.mock('../../../../server/utils/db', () => ({
+  db: testDb.db,
+  withDbTimeout: <T>(promise: Promise<T>) => promise,
+}))
 
 // `defineEventHandler` is normally supplied by Nitro's auto-import; under plain vitest
 // (no Nuxt/Nitro runtime) it does not exist, so it is shimmed as an identity function

@@ -1,5 +1,5 @@
 import { requireUser } from '../../utils/auth'
-import { db } from '../../utils/db'
+import { db, withDbTimeout } from '../../utils/db'
 import { validateBody } from '../../utils/validateBody'
 import { expenseEntries } from '../../../drizzle/schema'
 import { expenseEntryInputSchema } from '../../../shared/schemas/expenseEntry'
@@ -10,7 +10,9 @@ export default defineEventHandler(async (event) => {
 
   const [entryYear, entryMonth] = input.date.split('-').map(Number)
 
-  const [row] = await db
+  // withDbTimeout: the pool-wait queue has no timeout of its own, so an unwrapped call
+  // waits forever instead of failing when the pool's slots are exhausted.
+  const [row] = await withDbTimeout(db
     .insert(expenseEntries)
     .values({
       date: input.date,
@@ -23,7 +25,7 @@ export default defineEventHandler(async (event) => {
       monthAssigned: entryMonth,
       yearAssigned: entryYear,
     })
-    .returning()
+    .returning())
 
   return row
 })

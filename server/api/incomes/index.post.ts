@@ -1,5 +1,5 @@
 import { requireUser } from '../../utils/auth'
-import { db } from '../../utils/db'
+import { db, withDbTimeout } from '../../utils/db'
 import { validateBody } from '../../utils/validateBody'
 import { incomeEntries } from '../../../drizzle/schema'
 import { incomeEntryInputSchema } from '../../../shared/schemas/incomeEntry'
@@ -8,7 +8,9 @@ export default defineEventHandler(async (event) => {
   await requireUser(event)
   const input = await validateBody(event, incomeEntryInputSchema)
 
-  const [row] = await db
+  // withDbTimeout: the pool-wait queue has no timeout of its own, so an unwrapped call
+  // waits forever instead of failing when the pool's slots are exhausted.
+  const [row] = await withDbTimeout(db
     .insert(incomeEntries)
     .values({
       incomeTypeId: input.incomeTypeId,
@@ -20,7 +22,7 @@ export default defineEventHandler(async (event) => {
       detailsText: input.detailsText ?? null,
       targetEnvelopeId: input.targetEnvelopeId ?? null,
     })
-    .returning()
+    .returning())
 
   return row
 })

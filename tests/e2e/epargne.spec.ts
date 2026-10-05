@@ -81,17 +81,23 @@ test('a poche can be created and edited through its own form, moving the progres
 
   const payload = await (await page.request.get('/api/epargne')).json()
   const created = payload.poches.find((poche: any) => poche.name === name)
-  expect(created).toBeTruthy()
-  expect(created.monthlyAmount).toBe(25)
-  expect(created.targetAmount).toBe(500)
 
   // No delete endpoint exists for a poche (deliberately out of scope), so everything this
   // test seeds — the poche itself and its savings entry — must be neutralised before the
   // test ends, or re-running this suite leaves permanent residue in the live database (see
   // enveloppes.spec.ts and comptes-edit.spec.ts, which restore what they touch for the same
-  // reason). try/finally so the cleanup still runs if an assertion below fails partway —
-  // that failure mode is exactly how residue accumulated before.
+  // reason). try/finally so the cleanup still runs if an assertion fails partway — that
+  // failure mode is exactly how residue accumulated before.
+  //
+  // The try opens HERE, before the first assertion about the created poche rather than
+  // after it. The row already exists in the database by this point: it was created through
+  // the real form above. Asserting on it outside the try would leave it behind on any
+  // failure, which is the very thing this block exists to prevent.
   try {
+    expect(created).toBeTruthy()
+    expect(created.monthlyAmount).toBe(25)
+    expect(created.targetAmount).toBe(500)
+
     // Give the poche a real balance: freshly created, it has none, and moving its objective
     // against a zero balance would leave the progress bar at 0 % either way, proving nothing.
     await page.request.post('/api/savings', {
@@ -156,12 +162,21 @@ test('a poche can be created and edited through its own form, moving the progres
     // wrote), zero the poche's monthly contribution and clear its target so it cannot
     // contribute to the page's headline figures, and rename it so a human scanning the
     // list sees immediately that it is test residue rather than a real poche.
-    await page.request.post('/api/savings', {
-      data: { savingsGoalId: created.id, year: payload.month.year, month: payload.month.month, amount: 0 },
-    })
-    await page.request.patch(`/api/savings-goals/${created.id}`, {
-      data: { name: `zz-e2e-${name}`, monthlyAmount: 0, targetAmount: null },
-    })
+    //
+    // Re-resolve the id instead of trusting `created`: if the lookup above returned nothing,
+    // dereferencing it here would throw a TypeError that masks the real assertion failure
+    // AND still leave the row behind. The form did create it, so find it by name.
+    const goalId = created?.id ?? (await (await page.request.get('/api/savings-goals')).json())
+      .find((goal: any) => goal.name === name)?.id
+
+    if (goalId) {
+      await page.request.post('/api/savings', {
+        data: { savingsGoalId: goalId, year: payload.month.year, month: payload.month.month, amount: 0 },
+      })
+      await page.request.patch(`/api/savings-goals/${goalId}`, {
+        data: { name: `zz-e2e-${name}`, monthlyAmount: 0, targetAmount: null },
+      })
+    }
   }
 })
 

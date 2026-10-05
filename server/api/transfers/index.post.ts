@@ -1,5 +1,5 @@
 import { requireUser } from '../../utils/auth'
-import { db } from '../../utils/db'
+import { db, withDbTimeout } from '../../utils/db'
 import { validateBody } from '../../utils/validateBody'
 import { transfers } from '../../../drizzle/schema'
 import { transferInputSchema } from '../../../shared/schemas/transfer'
@@ -14,7 +14,9 @@ export default defineEventHandler(async (event) => {
   const isoDate = new Date().toISOString().slice(0, 10)
   const [transferYear, transferMonth] = isoDate.split('-').map(Number)
 
-  const [row] = await db
+  // withDbTimeout: the pool-wait queue has no timeout of its own, so an unwrapped call
+  // waits forever instead of failing when the pool's slots are exhausted.
+  const [row] = await withDbTimeout(db
     .insert(transfers)
     .values({
       date: isoDate,
@@ -25,7 +27,7 @@ export default defineEventHandler(async (event) => {
       monthAssigned: transferMonth,
       yearAssigned: transferYear,
     })
-    .returning()
+    .returning())
 
   return row
 })

@@ -52,7 +52,47 @@ enabled on all 17 tables via the hand-written `drizzle/migrations/0002_enable_rl
 push would compute the live RLS as drift and silently disable it, re-opening the public
 Data API hole that was closed earlier. Generate migrations; never push.
 
-## 6. Livrets remain unbuilt and undesigned
+## 6. Every E2E run still leaves one visible poche behind
+
+`tests/e2e/epargne.spec.ts` now neutralises what it creates — the savings entry is zeroed,
+the poche is set to `monthlyAmount: 0` / `targetAmount: null`, and it is renamed with a
+`zz-e2e-` prefix — all in a `finally` so it runs even when an assertion fails. That stops
+the figures drifting, but **neutralised is not invisible**: the row still renders on
+`/epargne` as a poche, and one accumulates per run.
+
+Two ways to close it properly, neither of which was in this milestone's scope:
+- a delete endpoint for a savings goal, which the spec deliberately excluded; or
+- an `archived_at` column on `savings_goals` plus a filter in the page's query. Every other
+  reference table has one — `listActiveRows` in `server/utils/referenceCrud.ts` filters on
+  it — and `savings_goals` is the exception. That asymmetry is probably worth closing on its
+  own merits, since it also gives the user a way to retire a poche they no longer want.
+
+Until then, residue has to be deleted by hand. The rows are easy to spot: they are the ones
+named `zz-e2e-…`.
+
+## 7. The same missing `sort_order` exists in five other create endpoints
+
+The savings-goal POST now computes `sort_order` as max + 1, because `sort_order` defaults to
+0 at the column level and a new row would otherwise tie with the first seeded row and make
+list order unstable between renders. The create endpoints for envelopes, categories,
+accounts, income types and the wishlist have the identical defect and were left untouched,
+since changing ordering behaviour across five more endpoints is a decision worth taking
+deliberately rather than folding into an Épargne fix wave. Each needs the same treatment
+plus a test.
+
+## 8. Minor items parked from the final review
+
+- `.replace(',', '.')` in the amount forms replaces only the FIRST comma. Pre-existing and
+  shared with `EnvelopeEditForm`; a second comma is not valid input anyway.
+- The poche creation form omits `note`, although the edit form has it. A feature gap rather
+  than a defect — `note` is optional and editable immediately after creating.
+- `tests/unit/server/utils/epargneQuery.test.ts`'s pool guard mocks two helpers the module
+  never imports, which makes it a weaker regression guard than it looks. The stronger
+  version mocks `server/utils/db` itself and asserts it is never touched. Left alone because
+  the final review independently traced the import graph and confirmed `/api/epargne` has no
+  transitive path to the pool at all, so the hazard is proven absent by other means.
+
+## 9. Livrets remain unbuilt and undesigned
 
 `livrets`, `livret_contributions` and `livret_yearly_history` exist in the schema with 0
 rows, no endpoints and no UI. The parent spec's milestone 4 says "+ Livrets", but the Figma
