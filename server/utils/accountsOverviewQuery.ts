@@ -24,6 +24,9 @@ export interface AccountsOverview {
 
 function assertOk(table: string, error: { message: string } | null) {
   if (!error) return
+  // Log before throwing: Nitro does not surface a handler error's `message` to the server
+  // console, so without this a 500 from here leaves no server-side trace of the cause.
+  console.error(`[accountsOverviewQuery] ${table} request failed: ${error.message}`)
   throw createError({
     statusCode: 500,
     statusMessage: 'Failed to load accounts overview',

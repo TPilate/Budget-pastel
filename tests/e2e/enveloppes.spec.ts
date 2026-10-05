@@ -1,5 +1,11 @@
 import { test, expect, type Page } from '@playwright/test'
 
+// Both tests here open the drawer for the SAME first envelope row, and the first one edits
+// it. Run in parallel they interleave, and under a full-suite load (six workers against one
+// dev server) that surfaced as the drawer simply never opening for the second test. This is
+// the same shared-mutable-fixture problem that comptes-edit.spec.ts was made serial for.
+test.describe.configure({ mode: 'serial' })
+
 const hasSeedCredentials = Boolean(process.env.SEED_USER_EMAIL)
   && Boolean(process.env.SEED_USER_PASSWORD)
   && Boolean(process.env.SUPABASE_URL)
@@ -27,11 +33,19 @@ async function openFirstEnvelopeDrawer(page: Page) {
     { timeout: 20_000 },
   )
 
-  await page.getByRole('row').nth(1).click()
   // Assert on the form's own field, not on the text "Modifier": the page header already
   // contains a "Modifier les plafonds" link, and getByText matches substrings, so that
   // would pass even with the drawer shut.
-  await expect(page.getByLabel('Plafond par défaut')).toBeVisible({ timeout: 10_000 })
+  const ceilingField = page.getByLabel('Plafond par défaut')
+
+  // `__vue_app__` existing means the app was created, not that this row's click handler is
+  // attached — and a click that lands before it is does nothing whatsoever, leaving the
+  // drawer shut with no error to show for it. Under load that gap is wide enough to lose a
+  // click, so retry rather than treating one click as definitive.
+  await expect(async () => {
+    await page.getByRole('row').nth(1).click()
+    await expect(ceilingField).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 20_000 })
 }
 
 test('an envelope can be edited from the drawer, and the change survives a reload', async ({ page }) => {

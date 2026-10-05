@@ -55,6 +55,9 @@ function assertOk(table: string, error: { message: string } | null) {
   if (!error) return
   // Never degrade to a partial feed: an empty array would read as "nothing this
   // month" and quietly mask an RLS or schema problem.
+  // Log before throwing: Nitro does not surface a handler error's `message` to the server
+  // console, so without this a 500 from here leaves no server-side trace of the cause.
+  console.error(`[movementsQuery] ${table} request failed: ${error.message}`)
   throw createError({
     statusCode: 500,
     statusMessage: 'Failed to load movements',

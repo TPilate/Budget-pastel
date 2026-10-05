@@ -114,8 +114,13 @@ test('a poche can be created and edited through its own form, moving the progres
   // the signal to read the new bar width rather than racing the refresh.
   await expect(objectifField).toBeHidden({ timeout: 10_000 })
 
-  const barAfter = await reloadedRow.locator('.bg-mint-bar').getAttribute('style')
-  expect(barAfter).not.toBe(barBefore)
+  // Poll rather than read once. The form hiding means the save round trip finished, but the
+  // parent's refresh repaints the bar a moment later, so a single immediate read catches the
+  // pre-refresh width and compares it against itself. The assertion is still the real one —
+  // the bar must actually move, from balance/500 to balance/800.50 — just not raced.
+  await expect
+    .poll(() => reloadedRow.locator('.bg-mint-bar').getAttribute('style'), { timeout: 10_000 })
+    .not.toBe(barBefore)
 
   // Server-side re-read proves this persisted rather than only updating local state.
   const edited = (await (await page.request.get('/api/epargne')).json())

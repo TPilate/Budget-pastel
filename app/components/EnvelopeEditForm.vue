@@ -17,13 +17,20 @@ const showOnHome = ref(props.envelope.showOnHome)
 
 // The drawer stays mounted while the selection changes, so without this the form would
 // keep showing the previously opened envelope's values.
-watch(() => props.envelope, (envelope) => {
+watch(() => props.envelope, (envelope, previous) => {
   name.value = envelope.name
   emoji.value = envelope.emoji
   ceiling.value = String(envelope.defaultCeiling)
   showOnHome.value = envelope.showOnHome
-  errorMessage.value = ''
-  savedAt.value = 0
+
+  // Only clear the save feedback when a DIFFERENT envelope is opened. A successful save
+  // also replaces this prop — the parent refreshes the list and re-resolves the selection
+  // to a new object — so resetting unconditionally wiped the "Enregistré" confirmation the
+  // save had just set, and the user got no feedback at all for a write that worked.
+  if (envelope.id !== previous?.id) {
+    errorMessage.value = ''
+    savedAt.value = 0
+  }
 })
 
 // Anything typed before Vue hydrates is discarded when hydration patches the inputs to

@@ -1,5 +1,12 @@
 import { defineConfig, devices } from '@playwright/test'
+import dotenv from 'dotenv'
 import { STORAGE_STATE } from './tests/e2e/storage-state'
+
+// Load .env before the specs are collected. Without this, SEED_USER_EMAIL and friends are
+// undefined, every credentialed spec hits its `test.skip(!hasSeedCredentials)` guard, and
+// `npm run test:e2e` EXITS GREEN having run nothing — a suite that reports success while
+// testing nothing at all, which would mask every real failure in it.
+dotenv.config()
 
 export default defineConfig({
   testDir: './tests/e2e',

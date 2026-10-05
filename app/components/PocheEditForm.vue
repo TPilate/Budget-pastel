@@ -17,13 +17,20 @@ const targetAmount = ref(props.poche.targetAmount === null ? '' : String(props.p
 
 // The list re-renders from a fresh payload after each save and the selection can change,
 // so the fields are re-seeded rather than keeping a stale poche's values.
-watch(() => props.poche, (poche) => {
+watch(() => props.poche, (poche, previous) => {
   name.value = poche.name
   note.value = poche.note ?? ''
   monthlyAmount.value = String(poche.monthlyAmount)
   targetAmount.value = poche.targetAmount === null ? '' : String(poche.targetAmount)
-  errorMessage.value = ''
-  savedAt.value = 0
+
+  // Only clear the save feedback when a DIFFERENT poche is opened. A successful save also
+  // replaces this prop, because the page refreshes after writing, so resetting
+  // unconditionally would wipe the "Enregistré" confirmation the save had just set. The
+  // same defect was found and fixed in EnvelopeEditForm.
+  if (poche.id !== previous?.id) {
+    errorMessage.value = ''
+    savedAt.value = 0
+  }
 })
 
 // Anything typed before hydration is discarded when Vue patches the inputs to match these

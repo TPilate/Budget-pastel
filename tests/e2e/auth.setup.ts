@@ -30,10 +30,28 @@ setup('authenticate once for the whole run', async ({ page }) => {
   }
 
   await page.goto('/login')
+
+  // The page renders behind <Suspense>, so its click handler is not attached until
+  // hydration finishes; clicking before then does nothing at all. Wait for the Vue app
+  // rather than racing it, as the other specs do.
+  await page.waitForFunction(
+    () => Boolean((document.querySelector('#__nuxt') as any)?.__vue_app__),
+    undefined,
+    { timeout: 20_000 },
+  )
+
   await page.getByLabel('Email').fill(email!)
   await page.getByLabel('Mot de passe').fill(password!)
   await page.getByRole('button', { name: 'Se connecter' }).click()
-  await expect(page).toHaveURL('http://localhost:3000/')
+
+  // 30s, not the 5s default. The password grant itself is fast, but the URL does not change
+  // until the route commits, and a client-side navigation to `/` cannot commit until the
+  // index page's async setup resolves — which means waiting on /api/dashboard, the heaviest
+  // route in the app. On a dev server Playwright has just started, that first call also
+  // pays for on-demand compilation. Instrumenting this showed the grant returning 200 and
+  // the redirect completing correctly, only past the 5s mark: the assertion was racing a
+  // cold server, not catching a broken login.
+  await expect(page).toHaveURL('http://localhost:3000/', { timeout: 30_000 })
 
   await page.context().storageState({ path: STORAGE_STATE })
 })
