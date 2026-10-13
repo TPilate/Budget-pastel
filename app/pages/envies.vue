@@ -94,11 +94,10 @@ const newEnvelopeId = ref('')
 const createError = ref('')
 
 // Hydration is fast now, but it is never instant, and correctness should not depend on
-// how quickly it lands. This page has top-level awaits (useFetch above) plus a form,
-// exactly the combination app/pages/login.vue's header comment warns about: anything
-// typed before hydration finishes is discarded when hydration patches the inputs to
-// match these empty refs. The form stays disabled until mounted so nothing can be typed
-// into or submitted from markup Vue has not taken over yet. isHydrated is a separate
+// how quickly it lands. Anything typed before hydration finishes is discarded when
+// hydration patches the inputs to match these empty refs (see app/pages/login.vue's header
+// comment). The form stays disabled until mounted so nothing can be typed into or
+// submitted from markup Vue has not taken over yet. isHydrated is a separate
 // concern from isSubmitting (a request in flight) and the two are not merged.
 const isHydrated = ref(false)
 onMounted(() => {

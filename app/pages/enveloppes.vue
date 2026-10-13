@@ -27,6 +27,12 @@ const envelopes = computed(() => page.value?.envelopes ?? null)
 const reserves = computed(() => page.value?.reserves ?? null)
 const envelopesError = error
 const reservesError = error
+// The page's ledgers are a superset of what the sidebar reads, so keep the sidebar's
+// ceilings in step with them without an extra request.
+const sidebarCeilings = useNuxtData<BudgetEnvelopeLedger[]>('envelope-ceilings')
+watch(() => page.value?.envelopes, (fresh) => {
+  if (fresh) sidebarCeilings.data.value = fresh
+})
 async function refreshEnvelopes() {
   await Promise.all([refresh(), refreshNuxtData('envelope-ceilings')])
 }

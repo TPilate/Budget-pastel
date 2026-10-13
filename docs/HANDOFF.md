@@ -43,7 +43,7 @@ is what caused the original infinite-loading bug on the home page. Measured: the
 npm run dev                  # dev server
 npm run build                # production build (run this before believing anything works)
 npm test                     # vitest — currently 279 passing across 37 files
-npm run test:e2e             # playwright — 26 passing before the Compte rendu milestone; the new `compte-rendu.spec.ts` and dashboard test have never run
+npm run test:e2e             # playwright — perf.spec has 13 tests (read-only); entry.spec and epargne.spec leave permanent rows in the live database, run them deliberately
 npx playwright test tests/e2e/perf.spec.ts   # navigation performance (read-only, safe on the live DB)
 PERF_BASE_URL=https://budget-pastel.vercel.app npx playwright test tests/e2e/perf.spec.ts   # same, against production (read-only; run NO other spec there)
 npm run db:generate          # drizzle-kit generate (migrations)
@@ -120,9 +120,10 @@ and postgres.js's pool-wait queue has **no timeout** — a request that cannot g
 forever rather than erroring, which is why a page once hung indefinitely instead of showing
 an error. `connect_timeout` and `statement_timeout` do not cover waiting for a slot; only
 `withDbTimeout` does. As of `d6817d7` there are **no unwrapped pool calls left in
-`server/`** — keep it that way. `/api/dashboard` and `/api/accounts/overview` each hold up
-to 5 slots, and `SidebarCeilingsWidget` costs another 5 on every page render, so the margin
-is thin. New routes should follow `/api/epargne` and stay entirely on the Supabase Data API.
+`server/`** — keep it that way. The sidebar's ceilings and the envelope ledgers now read
+through the Data API; the dashboard holds at most the reserve-balance pool reads
+(`listReserveEnvelopeBalances`, 3 queries) plus its own query, so the margin is comfortable
+but not unlimited. New routes should follow `/api/epargne` and stay entirely on the Supabase Data API.
 
 **One call per page.** Every page loads its data with a single request: a new page gets an
 `/api/pages/*` endpoint composed in `server/utils/pageData.ts`, reads it with `useLazyFetch` and
@@ -230,14 +231,14 @@ Navigation time, click to data on screen (local dev measures are from `perf.spec
 
 | Page | Before (production) | After, local dev | After, production |
 |---|---|---|---|
-| Mouvements | about 420 ms, 3 hops | 258-296 ms, 1 call | a mesurer apres deploiement |
-| Parametres | 450-630 ms, 5 hops | 227-257 ms, 1 call | a mesurer apres deploiement |
-| Enveloppes | n/a | 510-547 ms, 1 call | a mesurer apres deploiement |
-| Epargne | n/a | 213-267 ms, 1 call | a mesurer apres deploiement |
-| Comptes | n/a | 435-448 ms, 1 call | a mesurer apres deploiement |
-| Envies | n/a | 235-256 ms, 1 call | a mesurer apres deploiement |
-| Compte rendu | n/a | 475-548 ms, 1 call | a mesurer apres deploiement |
-| Cold TTFB | 2.8 s | n/a | a mesurer apres deploiement |
+| Mouvements | about 420 ms, 3 hops | 258-296 ms, 1 call | à mesurer après déploiement |
+| Paramètres | 450-630 ms, 5 hops | 227-257 ms, 1 call | à mesurer après déploiement |
+| Enveloppes | n/a | 510-547 ms, 1 call | à mesurer après déploiement |
+| Épargne | n/a | 213-267 ms, 1 call | à mesurer après déploiement |
+| Comptes | n/a | 435-448 ms, 1 call | à mesurer après déploiement |
+| Envies | n/a | 235-256 ms, 1 call | à mesurer après déploiement |
+| Compte rendu | n/a | 475-548 ms, 1 call | à mesurer après déploiement |
+| Cold TTFB | 2.8 s | n/a | à mesurer après déploiement |
 
 Local dev numbers are not comparable to production (no network, dev server). The production
 column is filled by running the PERF_BASE_URL command in section 2 after deployment.

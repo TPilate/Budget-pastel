@@ -40,7 +40,7 @@ function apiCallsDuring(page: Page) {
 
 test('warm up every page once (dev compiles on first visit; production warms the function)', async ({ page }) => {
   await openHome(page)
-  for (const { path } of PAGES) {
+  for (const { path } of [{ path: '/' }, ...PAGES]) {
     await page.locator(`a[href="${path}"]`).first().click()
     await page.waitForURL(`**${path}`)
     await expect(page.getByRole('status')).toHaveCount(0, { timeout: 15_000 })
@@ -63,12 +63,38 @@ for (const { path, call } of PAGES) {
     await expect(page.getByRole('status')).toHaveCount(0, { timeout: 15_000 })
     const elapsed = Date.now() - started
     console.log(`[perf] ${path}: ${elapsed} ms`)
+    // Let a late second call surface before reading the list.
+    await page.waitForLoadState('networkidle')
 
     expect(calls).toEqual([call])
     expect(calls).not.toContain('/api/health')
     expect(elapsed).toBeLessThan(NAV_BUDGET_MS)
   })
 }
+
+test('navigating to the dashboard costs one call, no session re-check, and shows data within budget', async ({ page }) => {
+  await openHome(page)
+  await page.locator('a[href="/parametres"]').first().click()
+  await page.waitForURL('**/parametres')
+  await expect(page.getByRole('status')).toHaveCount(0, { timeout: 15_000 })
+  await page.waitForLoadState('networkidle')
+  const calls = apiCallsDuring(page)
+
+  const started = Date.now()
+  const dataLoaded = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/pages/dashboard', { timeout: 15_000 })
+  await page.locator('a[href="/"]').first().click()
+  await page.waitForURL(/\/$/)
+  await dataLoaded
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  await expect(page.getByRole('status')).toHaveCount(0, { timeout: 15_000 })
+  const elapsed = Date.now() - started
+  console.log(`[perf] /: ${elapsed} ms`)
+  await page.waitForLoadState('networkidle')
+
+  expect(calls).toEqual(['/api/pages/dashboard'])
+  expect(calls).not.toContain('/api/health')
+  expect(elapsed).toBeLessThan(NAV_BUDGET_MS)
+})
 
 test('the page renders before its data arrives', async ({ page }) => {
   await openHome(page)
@@ -93,6 +119,8 @@ test('entry forms stay hidden until their lists arrive', async ({ page }) => {
   await page.locator('a[href="/mouvements"]').first().click()
   await expect(page.getByTestId('entry-loading')).toBeVisible()
   await expect(page.getByTestId('entry-loading')).toBeHidden({ timeout: 15_000 })
+  // A real control of the expense form, so the test cannot pass when the page errored.
+  await expect(page.getByPlaceholder('Monoprix')).toBeVisible()
 })
 
 test('a failing page call shows the error banner instead of an endless skeleton', async ({ page }) => {
@@ -110,4 +138,6 @@ test('a 401 on a page call re-checks the session', async ({ page }) => {
   await page.route('**/api/pages/parametres', (route) => route.fulfill({ status: 401, body: '{}' }), { times: 1 })
   await page.locator('a[href="/parametres"]').first().click()
   await expect.poll(() => healthChecks.length, { timeout: 10_000 }).toBeGreaterThan(0)
+  // The session is still valid, so the /login middleware bounces the visitor back to `/`.
+  await expect(page).toHaveURL(/\/$/, { timeout: 10_000 })
 })

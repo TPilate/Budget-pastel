@@ -45,12 +45,11 @@ export async function fetchAccountsOverview(
   // New reads go through the Data API; the two envelope helpers already exist and
   // are reused rather than reimplemented.
   //
-  // listBudgetEnvelopeLedgers and listReserveEnvelopeBalances are both pool-backed (5
-  // and 3 round-trips respectively). They are awaited one after another, not inside the
-  // Promise.all below, so this route never holds more than 5 pool slots at once instead
-  // of 8 — the same reasoning as /api/dashboard (server/utils/dashboardQuery.ts): the
-  // pool-wait queue postgres.js falls back to has no timeout, so an exhausted pool hangs
-  // a request forever instead of erroring. Do not fold these back into the Promise.all.
+  // listBudgetEnvelopeLedgers reads through the Data API; only listReserveEnvelopeBalances
+  // still uses the pool (3 round-trips). They are awaited one after another, not inside the
+  // Promise.all below, so the pool-backed read never competes with the others: the pool-wait
+  // queue postgres.js falls back to has no timeout, so an exhausted pool hangs a request
+  // forever instead of erroring. Do not fold these back into the Promise.all.
   const ledgers = await listBudgetEnvelopeLedgers(event, year, month)
   const reserves = await listReserveEnvelopeBalances()
 

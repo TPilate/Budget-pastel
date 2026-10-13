@@ -102,8 +102,7 @@ const isSavingSavings = ref(false)
 // Hydration is fast now, but it is never instant, and correctness should not depend on
 // how quickly it lands. The savings form stays disabled until mounted so nothing can be
 // typed into or submitted from markup Vue has not taken over yet — the same guard as
-// app/pages/login.vue, whose header comment explains why this page (top-level awaits
-// plus a form) is exactly the shape that bug needs.
+// app/pages/login.vue, whose header comment explains why input typed before hydration is lost.
 const isHydrated = ref(false)
 onMounted(() => {
   isHydrated.value = true

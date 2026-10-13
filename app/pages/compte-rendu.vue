@@ -98,7 +98,9 @@ async function confirmClosure() {
       },
     })
     isConfirmOpen.value = false
-    await refresh()
+    // close_month rewrites this month's envelope allocations, so the sidebar's ceilings
+    // (and Mouvements' preview, which reads the same key) must be refreshed too.
+    await Promise.all([refresh(), refreshNuxtData('envelope-ceilings')])
   }
   catch (e) {
     submitError.value = apiErrorMessage(e) ?? 'Impossible de clôturer ce mois. Réessayez dans un instant.'

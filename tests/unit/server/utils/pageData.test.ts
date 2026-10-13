@@ -26,7 +26,7 @@ vi.mock('../../../../server/utils/envelopeCeilingsQuery', () => ({ listBudgetEnv
 vi.mock('../../../../server/utils/reserveEnvelopeQuery', () => ({ listReserveEnvelopeBalances: src.listReserveEnvelopeBalances }))
 vi.mock('../../../../server/utils/referenceQuery', () => ({ fetchActiveRows: src.fetchActiveRows, fetchSavingsGoals: src.fetchSavingsGoals }))
 vi.mock('../../../../server/utils/closureService', () => ({ getClosureStatus: src.getClosureStatus }))
-vi.mock('../../../../server/utils/db', () => { throw new Error('pageData must not import the pool directly') })
+// The Data-API-only guards live in referenceQuery.test.ts and envelopeCeilingsQuery.test.ts.
 
 import { getDashboardPage, getMouvementsPage, getEnveloppesPage, getEnviesPage, getParametresPage } from '../../../../server/utils/pageData'
 
