@@ -34,16 +34,18 @@ interface EntryReferenceData {
   incomeTypes: ReferenceItem[]
 }
 
-// Both fetched here, once, and the reference data is handed down to whichever form is
-// active. Previously each form fetched its own lists on mount, so a page render paid for
-// several extra auth round-trips and refetched everything on every tab switch.
-const [
-  { data: ceilingsData, error: ceilingsError },
-  { data: referenceData, error: referenceError },
-] = await Promise.all([
-  useFetch<EnvelopeCeiling[]>('/api/envelopes/ceilings', { key: 'envelope-ceilings' }),
-  useFetch<EntryReferenceData>('/api/entry-reference-data', { key: 'entry-reference-data' }),
-])
+const props = defineProps<{
+  referenceData: EntryReferenceData | null
+  referenceError: boolean
+}>()
+
+// The sidebar widget already loads the ceilings under this key on every page; reading the
+// same entry avoids a second request on each visit to Mouvements.
+const { data: ceilingsData } = useNuxtData<EnvelopeCeiling[]>('envelope-ceilings')
+// useNuxtData exposes no error in this Nuxt version; the sidebar widget reports ceiling failures.
+const ceilingsError = computed(() => false)
+const referenceData = computed(() => props.referenceData)
+const referenceError = computed(() => props.referenceError)
 
 const ceilingsById = computed(() => new Map((ceilingsData.value ?? []).map((envelope) => [envelope.id, envelope])))
 
@@ -85,8 +87,7 @@ const previewLines = computed<PreviewLine[]>(() => {
 })
 
 function handleSaved() {
-  refreshNuxtData('movements-feed')
-  refreshNuxtData('envelope-ceilings')
+  refreshNuxtData(['page-mouvements', 'envelope-ceilings'])
   draftAmount.value = 0
   draftExpenseEnvelopeId.value = ''
   draftIncomeEnvelopeId.value = ''
@@ -105,7 +106,7 @@ function handleSaved() {
     <p v-if="referenceError" class="rounded-[16px] bg-app-bg p-3 text-[11px] font-semibold text-warn-ink">
       Impossible de charger le formulaire de saisie.
     </p>
-    <template v-else>
+    <template v-else-if="referenceData">
       <ExpenseForm
         v-if="mode === 'expense'"
         :categories="categories"
@@ -132,6 +133,9 @@ function handleSaved() {
         @to-envelope-change="draftTransferToId = $event"
       />
     </template>
+    <p v-else class="rounded-[16px] bg-app-bg p-3 text-[11px] font-semibold text-ink-muted" data-testid="entry-loading">
+      Chargement du formulaire…
+    </p>
 
     <p v-if="ceilingsError" class="rounded-[16px] bg-app-bg p-3 text-[11px] font-semibold text-warn-ink">
       Aperçu indisponible — impossible de charger les plafonds des enveloppes.

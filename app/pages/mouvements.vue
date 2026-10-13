@@ -10,7 +10,16 @@ interface Movement {
   sign: 'negative' | 'positive' | 'neutral'
 }
 
-const { data, error } = await useFetch<Movement[]>('/api/movements', { key: 'movements-feed' })
+interface EntryReferenceData {
+  categories: { id: string, name: string, emoji: string, requiresDetailsText?: boolean }[]
+  accounts: { id: string, name: string, emoji: string }[]
+  envelopes: { id: string, name: string, emoji: string }[]
+  incomeTypes: { id: string, name: string, emoji: string, requiresDetailsText?: boolean }[]
+}
+interface MouvementsPage { movements: Movement[], reference: EntryReferenceData }
+
+const { data: page, error } = useLazyFetch<MouvementsPage>('/api/pages/mouvements', { key: 'page-mouvements' })
+const data = computed(() => page.value?.movements ?? null)
 
 const activeFilter = ref<'all' | 'expense' | 'income' | 'transfer'>('all')
 const searchText = ref('')
@@ -81,7 +90,7 @@ function formatDate(isoDate: string) {
         <p v-if="error" class="py-6 text-center text-[12.5px] font-semibold text-warn-ink">
           Impossible de charger les mouvements.
         </p>
-        <template v-else>
+        <template v-else-if="page">
           <table class="w-full text-left text-[12.5px]">
             <thead>
               <tr class="text-[10.5px] font-bold uppercase tracking-wide text-ink-faint">
@@ -106,9 +115,10 @@ function formatDate(isoDate: string) {
             Aucun mouvement ce mois-ci.
           </p>
         </template>
+        <PageSkeleton v-else />
       </div>
     </div>
 
-    <EntryPanel />
+    <EntryPanel :reference-data="page?.reference ?? null" :reference-error="Boolean(error)" />
   </div>
 </template>
