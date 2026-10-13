@@ -1,5 +1,6 @@
 import { pgTable, uuid, integer, numeric, date, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 import { savingsGoals } from './reference'
+import { savingsEntrySourceEnum } from './enums'
 
 export const savingsEntries = pgTable('savings_entries', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -7,6 +8,9 @@ export const savingsEntries = pgTable('savings_entries', {
   year: integer('year').notNull(),
   month: integer('month').notNull(),
   amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  // A closure versement is a separate row from the manual one, so the manual upsert in
+  // POST /api/savings can never overwrite what a month closure put aside.
+  source: savingsEntrySourceEnum('source').notNull().default('manual'),
 })
 
 export const livrets = pgTable('livrets', {

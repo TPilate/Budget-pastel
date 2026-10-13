@@ -36,6 +36,13 @@
       "when": 1791220576111,
       "tag": "0004_fluffy_meteorite",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791889789056,
+      "tag": "0005_warm_hellcat",
+      "breakpoints": true
     }
   ]
 }

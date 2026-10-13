@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { getTableColumns } from 'drizzle-orm'
 import * as schema from '../../drizzle/schema'
+import { savingsEntries, monthlyReports } from '../../drizzle/schema'
 
 describe('drizzle schema', () => {
   it('exports every table required by the design spec', () => {
@@ -79,5 +80,19 @@ describe('savings goal poche columns', () => {
   it('carries a nullable note for the subtitle line', () => {
     expect(savingsGoals.note).toBeDefined()
     expect(savingsGoals.note.notNull).toBe(false)
+  })
+})
+
+describe('compte rendu schema additions', () => {
+  it('tags each savings entry with where it came from', () => {
+    expect(savingsEntries.source).toBeDefined()
+    expect(savingsEntries.source.notNull).toBe(true)
+    expect(savingsEntries.source.enumValues).toEqual(['manual', 'closure'])
+  })
+
+  it('stores the report as a snapshot rather than a file', () => {
+    expect(monthlyReports.snapshot).toBeDefined()
+    expect(monthlyReports.snapshot.notNull).toBe(true)
+    expect(monthlyReports.pdfPath.notNull).toBe(false)
   })
 })

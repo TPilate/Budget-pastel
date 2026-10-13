@@ -1,4 +1,4 @@
-import { pgTable, uuid, integer, timestamp, numeric, text, uniqueIndex } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, integer, timestamp, numeric, text, jsonb, uniqueIndex } from 'drizzle-orm/pg-core'
 import { closureStatusEnum, closureDestinationEnum } from './enums'
 import { envelopes, savingsGoals } from './reference'
 
@@ -25,7 +25,12 @@ export const closureEnvelopeDecisions = pgTable('closure_envelope_decisions', {
 export const monthlyReports = pgTable('monthly_reports', {
   id: uuid('id').defaultRandom().primaryKey(),
   monthClosureId: uuid('month_closure_id').notNull().references(() => monthClosures.id),
-  pdfPath: text('pdf_path').notNull(),
+  // No file is stored: the PDF is rendered on demand from `snapshot`. Kept nullable for
+  // a future stored-file variant (e.g. the scheduled email attachment).
+  pdfPath: text('pdf_path'),
+  snapshot: jsonb('snapshot').notNull(),
   generatedAt: timestamp('generated_at', { withTimezone: true }).notNull().defaultNow(),
   emailedAt: timestamp('emailed_at', { withTimezone: true }),
-})
+}, (table) => ({
+  monthClosureUnique: uniqueIndex('monthly_reports_month_closure_idx').on(table.monthClosureId),
+}))

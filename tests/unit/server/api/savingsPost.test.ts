@@ -40,6 +40,7 @@ const testDb = vi.hoisted(() => {
     if (col === savingsEntries.year) return 'year'
     if (col === savingsEntries.month) return 'month'
     if (col === savingsEntries.id) return 'id'
+    if (col === savingsEntries.source) return 'source'
     throw new Error('Unrecognized column in fake db matcher')
   }
 
@@ -117,7 +118,7 @@ describe('POST /api/savings', () => {
     const row = await postSavings(fakeEvent())
 
     expect(testDb.store.rows).toHaveLength(1)
-    expect(row).toMatchObject({ savingsGoalId: 'g1', year: 2026, month: 9, amount: '150' })
+    expect(row).toMatchObject({ savingsGoalId: 'g1', year: 2026, month: 9, amount: '150', source: 'manual' })
     expect(typeof row.amount).toBe('string')
   })
 
@@ -146,5 +147,18 @@ describe('POST /api/savings', () => {
 
     const augustRow = testDb.store.rows.find((r) => r.id === august.id)
     expect(augustRow).toMatchObject({ month: 8, amount: '100' })
+  })
+
+  it('never overwrites a closure contribution for the same goal and month', async () => {
+    // A closure versement lives alongside the manual one; the manual form must not
+    // treat it as "the existing figure" and replace it.
+    testDb.store.rows.push({ id: 'closure-row', savingsGoalId: 'g1', year: 2026, month: 9, amount: '40', source: 'closure' })
+    inputState.current = { savingsGoalId: 'g1', year: 2026, month: 9, amount: 150 }
+
+    const row = await postSavings(fakeEvent())
+
+    expect(row.id).not.toBe('closure-row')
+    expect(testDb.store.rows.find((r) => r.id === 'closure-row')!.amount).toBe('40')
+    expect(testDb.store.rows).toHaveLength(2)
   })
 })
