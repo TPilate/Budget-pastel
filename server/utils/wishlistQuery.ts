@@ -41,7 +41,7 @@ export async function fetchWishlist(event: H3Event, year: number, month: number)
 
   const [itemsRes, ledgers] = await Promise.all([
     supabase.from('wishlist_items').select(WISHLIST_SELECT).is('purchased_at', null).abortSignal(signal),
-    listBudgetEnvelopeLedgers(year, month),
+    listBudgetEnvelopeLedgers(event, year, month),
   ])
 
   if (itemsRes.error) {

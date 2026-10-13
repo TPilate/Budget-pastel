@@ -1,72 +1,35 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-vi.mock('drizzle-orm', () => ({
-  eq: vi.fn((col: any, val: any) => ({ type: 'eq', col, val })),
-  and: vi.fn((...args: any[]) => ({ type: 'and', args })),
-  asc: vi.fn((col: any) => ({ type: 'asc', col })),
-  isNull: vi.fn((col: any) => ({ type: 'isNull', col })),
-}))
-
-// `vi.mock` factories are hoisted above regular top-level statements, so
-// these shared objects are built with `vi.hoisted` to make sure they exist
-// by the time the factories below run (same reasoning as referenceCrud.test.ts).
-//
-// Unlike referenceCrud.test.ts, `listBudgetEnvelopeLedgers` queries FIVE
-// different tables in one `Promise.all`, each needing different canned rows.
-// `.from(table)` remembers which of the five table markers it was called
-// with, and `.where()` (or `.where().orderBy()`, the shape used only for
-// `envelopes`) resolves to that specific table's fixture rows.
 const mocks = vi.hoisted(() => {
-  const tables = {
-    envelopes: { __table: 'envelopes' },
-    monthlyEnvelopeAllocations: { __table: 'monthlyEnvelopeAllocations' },
-    expenseEntries: { __table: 'expenseEntries' },
-    incomeEntries: { __table: 'incomeEntries' },
-    transfers: { __table: 'transfers' },
-  }
-
-  const rowsByTable: Record<string, any[]> = {
-    envelopes: [],
-    monthlyEnvelopeAllocations: [],
-    expenseEntries: [],
-    incomeEntries: [],
-    transfers: [],
-  }
-
-  let currentTable = ''
-
-  const chain: any = {}
-  chain.select = vi.fn(() => chain)
-  chain.from = vi.fn((table: any) => {
-    currentTable = table.__table
-    return chain
+  const rowsByTable: Record<string, any[]> = {}
+  const errors: Record<string, { message: string } | null> = {}
+  const calls: Record<string, unknown[][]> = {}
+  const makeClient = () => ({
+    from(table: string) {
+      const record = (name: string) => (...args: unknown[]) => { (calls[table] ??= []).push([name, ...args]); return builder }
+      const builder: any = {
+        select: record('select'), eq: record('eq'), is: record('is'), not: record('not'), order: record('order'),
+        abortSignal: () => builder,
+        then: (ok: any, err: any) => Promise.resolve({ data: errors[table] ? null : (rowsByTable[table] ?? []), error: errors[table] ?? null }).then(ok, err),
+      }
+      return builder
+    },
   })
-  chain.where = vi.fn(() => {
-    const rows = rowsByTable[currentTable] ?? []
-    const result: any = Promise.resolve(rows)
-    result.orderBy = vi.fn(() => Promise.resolve(rows))
-    return result
-  })
-
-  return { tables, rowsByTable, chain }
+  return { rowsByTable, errors, calls, makeClient }
 })
 
-vi.mock('../../../../drizzle/schema', () => mocks.tables)
-// withDbTimeout only bounds how long we wait for a pool slot; it changes no results, so
-// the mock passes the promise straight through.
-vi.mock('../../../../server/utils/db', () => ({
-  db: mocks.chain,
-  withDbTimeout: <T>(promise: Promise<T>) => promise,
-}))
+vi.mock('../../../../server/utils/supabase', () => ({ createSupabaseServerClient: () => mocks.makeClient() }))
+// The point of this rewrite: ledgers must no longer hold pool slots.
+vi.mock('../../../../server/utils/db', () => { throw new Error('envelope ledgers must not touch the connection pool') })
 
 import { listBudgetEnvelopeLedgers } from '../../../../server/utils/envelopeCeilingsQuery'
 
+const event = { context: {} } as any
+
 function resetRows() {
-  mocks.rowsByTable.envelopes = []
-  mocks.rowsByTable.monthlyEnvelopeAllocations = []
-  mocks.rowsByTable.expenseEntries = []
-  mocks.rowsByTable.incomeEntries = []
-  mocks.rowsByTable.transfers = []
+  for (const key of Object.keys(mocks.rowsByTable)) delete mocks.rowsByTable[key]
+  for (const key of Object.keys(mocks.errors)) delete mocks.errors[key]
+  for (const key of Object.keys(mocks.calls)) delete mocks.calls[key]
 }
 
 describe('listBudgetEnvelopeLedgers', () => {
@@ -76,13 +39,13 @@ describe('listBudgetEnvelopeLedgers', () => {
 
   it('case 1: single envelope, default ceiling, no allocation, one expense, no income/transfers', async () => {
     mocks.rowsByTable.envelopes = [
-      { id: 'e1', name: 'Loisirs', emoji: '🎉', showOnHome: true, defaultCeiling: '150.00' },
+      { id: 'e1', name: 'Loisirs', emoji: '🎉', show_on_home: true, default_ceiling: '150.00' },
     ]
-    mocks.rowsByTable.expenseEntries = [
-      { envelopeId: 'e1', amount: '42.50' },
+    mocks.rowsByTable.expense_entries = [
+      { envelope_id: 'e1', amount: '42.50' },
     ]
 
-    const result = await listBudgetEnvelopeLedgers(2026, 9)
+    const result = await listBudgetEnvelopeLedgers(event, 2026, 9)
 
     expect(result).toHaveLength(1)
     // Hand-computed (computeEnvelopeLedger): no allocation row, so
@@ -104,16 +67,16 @@ describe('listBudgetEnvelopeLedgers', () => {
 
   it('case 2: envelope with an allocation row carrying a non-zero carriedOverAmount', async () => {
     mocks.rowsByTable.envelopes = [
-      { id: 'e2', name: 'Courses', emoji: '🛒', showOnHome: true, defaultCeiling: '100.00' },
+      { id: 'e2', name: 'Courses', emoji: '🛒', show_on_home: true, default_ceiling: '100.00' },
     ]
-    mocks.rowsByTable.monthlyEnvelopeAllocations = [
-      { envelopeId: 'e2', year: 2026, month: 9, baseCeiling: '200.00', carriedOverAmount: '30.00', overspendDeduction: '0.00' },
+    mocks.rowsByTable.monthly_envelope_allocations = [
+      { envelope_id: 'e2', year: 2026, month: 9, base_ceiling: '200.00', carried_over_amount: '30.00', overspend_deduction: '0.00' },
     ]
-    mocks.rowsByTable.expenseEntries = [
-      { envelopeId: 'e2', amount: '20.00' },
+    mocks.rowsByTable.expense_entries = [
+      { envelope_id: 'e2', amount: '20.00' },
     ]
 
-    const result = await listBudgetEnvelopeLedgers(2026, 9)
+    const result = await listBudgetEnvelopeLedgers(event, 2026, 9)
 
     // Hand-computed: allocation present, so baseCeiling = 200 (defaultCeiling
     // 100 is ignored), carriedOverAmount = 30, overspendDeduction = 0,
@@ -133,16 +96,16 @@ describe('listBudgetEnvelopeLedgers', () => {
 
   it('case 3: envelope with a transfer both in and out this month, attributed via toEnvelopeId/fromEnvelopeId', async () => {
     mocks.rowsByTable.envelopes = [
-      { id: 'e3', name: 'Cadeaux', emoji: '🎁', showOnHome: true, defaultCeiling: '50.00' },
+      { id: 'e3', name: 'Cadeaux', emoji: '🎁', show_on_home: true, default_ceiling: '50.00' },
     ]
     mocks.rowsByTable.transfers = [
       // Transfer IN to e3 — matched by toEnvelopeId.
-      { fromEnvelopeId: 'eX', toEnvelopeId: 'e3', amount: '25.00' },
+      { from_envelope_id: 'eX', to_envelope_id: 'e3', amount: '25.00' },
       // Transfer OUT of e3 — matched by fromEnvelopeId.
-      { fromEnvelopeId: 'e3', toEnvelopeId: 'eY', amount: '10.00' },
+      { from_envelope_id: 'e3', to_envelope_id: 'eY', amount: '10.00' },
     ]
 
-    const result = await listBudgetEnvelopeLedgers(2026, 9)
+    const result = await listBudgetEnvelopeLedgers(event, 2026, 9)
 
     // Hand-computed: no allocation, so baseCeiling = defaultCeiling = 50.
     // transfersInTotal = 25 (row where toEnvelopeId === 'e3')
@@ -165,21 +128,21 @@ describe('listBudgetEnvelopeLedgers', () => {
 
   it('case 4: two envelopes — expenses/income/transfers are isolated per envelope with no cross-contamination', async () => {
     mocks.rowsByTable.envelopes = [
-      { id: 'e4', name: 'Alpha', emoji: '🅰️', showOnHome: true, defaultCeiling: '100.00' },
-      { id: 'e5', name: 'Beta', emoji: '🅱️', showOnHome: true, defaultCeiling: '80.00' },
+      { id: 'e4', name: 'Alpha', emoji: '🅰️', show_on_home: true, default_ceiling: '100.00' },
+      { id: 'e5', name: 'Beta', emoji: '🅱️', show_on_home: true, default_ceiling: '80.00' },
     ]
-    mocks.rowsByTable.expenseEntries = [
-      { envelopeId: 'e4', amount: '10.00' },
-      { envelopeId: 'e5', amount: '20.00' },
+    mocks.rowsByTable.expense_entries = [
+      { envelope_id: 'e4', amount: '10.00' },
+      { envelope_id: 'e5', amount: '20.00' },
     ]
-    mocks.rowsByTable.incomeEntries = [
-      { targetEnvelopeId: 'e4', amount: '5.00' },
+    mocks.rowsByTable.income_entries = [
+      { target_envelope_id: 'e4', amount: '5.00' },
     ]
     mocks.rowsByTable.transfers = [
-      { fromEnvelopeId: 'e5', toEnvelopeId: 'e4', amount: '15.00' },
+      { from_envelope_id: 'e5', to_envelope_id: 'e4', amount: '15.00' },
     ]
 
-    const result = await listBudgetEnvelopeLedgers(2026, 9)
+    const result = await listBudgetEnvelopeLedgers(event, 2026, 9)
 
     expect(result).toHaveLength(2)
     const e4 = result.find((envelope) => envelope.id === 'e4')
@@ -219,26 +182,26 @@ describe('listBudgetEnvelopeLedgers', () => {
     // cannot be edited directly. The edit form needs the underlying defaultCeiling, which is
     // the field the PATCH endpoint writes.
     mocks.rowsByTable.envelopes = [
-      { id: 'e8', name: 'Sorties', emoji: '🥂', showOnHome: true, defaultCeiling: '90.00' },
+      { id: 'e8', name: 'Sorties', emoji: '🥂', show_on_home: true, default_ceiling: '90.00' },
     ]
 
-    const result = await listBudgetEnvelopeLedgers(2026, 9)
+    const result = await listBudgetEnvelopeLedgers(event, 2026, 9)
 
     expect(result[0]).toMatchObject({ ceiling: 90, defaultCeiling: 90 })
   })
 
   it('reports income credited to the envelope so the dashboard can show "+X € reçus"', async () => {
     mocks.rowsByTable.envelopes = [
-      { id: 'e9', name: 'Restaurants', emoji: '🍽️', showOnHome: true, defaultCeiling: '130.00' },
+      { id: 'e9', name: 'Restaurants', emoji: '🍽️', show_on_home: true, default_ceiling: '130.00' },
     ]
-    mocks.rowsByTable.expenseEntries = [
-      { envelopeId: 'e9', amount: '102.00' },
+    mocks.rowsByTable.expense_entries = [
+      { envelope_id: 'e9', amount: '102.00' },
     ]
-    mocks.rowsByTable.incomeEntries = [
-      { targetEnvelopeId: 'e9', amount: '20.00' },
+    mocks.rowsByTable.income_entries = [
+      { target_envelope_id: 'e9', amount: '20.00' },
     ]
 
-    const result = await listBudgetEnvelopeLedgers(2026, 9)
+    const result = await listBudgetEnvelopeLedgers(event, 2026, 9)
 
     // netSpent is expenses minus credits: 102 - 20 = 82, leaving 130 - 82 = 48.
     // incomeCreditsTotal is the 20 itself, which netSpent alone cannot recover.
@@ -247,6 +210,25 @@ describe('listBudgetEnvelopeLedgers', () => {
       netSpent: 82,
       remaining: 48,
       incomeCreditsTotal: 20,
+    })
+  })
+
+  it('scopes every month-bound read to the requested month and keeps only active budget envelopes', async () => {
+    await listBudgetEnvelopeLedgers(event, 2026, 9)
+    expect(mocks.calls.envelopes).toContainEqual(['eq', 'kind', 'budget'])
+    expect(mocks.calls.envelopes).toContainEqual(['is', 'archived_at', null])
+    for (const table of ['expense_entries', 'income_entries', 'transfers']) {
+      expect(mocks.calls[table]).toContainEqual(['eq', 'year_assigned', 2026])
+      expect(mocks.calls[table]).toContainEqual(['eq', 'month_assigned', 9])
+    }
+    expect(mocks.calls.monthly_envelope_allocations).toContainEqual(['eq', 'year', 2026])
+    expect(mocks.calls.monthly_envelope_allocations).toContainEqual(['eq', 'month', 9])
+  })
+
+  it('throws a 500 naming the table rather than returning partial ledgers', async () => {
+    mocks.errors.transfers = { message: 'boom' }
+    await expect(listBudgetEnvelopeLedgers(event, 2026, 9)).rejects.toMatchObject({
+      statusCode: 500, message: expect.stringContaining('transfers'),
     })
   })
 })

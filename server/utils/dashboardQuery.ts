@@ -76,11 +76,10 @@ export async function fetchDashboard(
   const supabase = createSupabaseServerClient(event)
   const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
 
-  // listBudgetEnvelopeLedgers and listReserveEnvelopeBalances are both pool-backed (5 and 3
-  // round-trips respectively). They are awaited one after another, not inside the Promise.all
-  // below, so this route never holds more than 5 pool slots at once instead of 8 — see the
-  // budget note in server/utils/db.ts.
-  const ledgers = await listBudgetEnvelopeLedgers(year, month)
+  // Ledgers now go through the Data API; only listReserveEnvelopeBalances still holds pool
+  // slots (3 round-trips), so this route never holds more than 3 at once — see the budget
+  // note in server/utils/db.ts.
+  const ledgers = await listBudgetEnvelopeLedgers(event, year, month)
   const reserves = await listReserveEnvelopeBalances()
 
   const [expenseRes, incomeRes, movements, savingsEntries] = await Promise.all([

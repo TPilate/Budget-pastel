@@ -51,7 +51,7 @@ export async function fetchAccountsOverview(
   // of 8 — the same reasoning as /api/dashboard (server/utils/dashboardQuery.ts): the
   // pool-wait queue postgres.js falls back to has no timeout, so an exhausted pool hangs
   // a request forever instead of erroring. Do not fold these back into the Promise.all.
-  const ledgers = await listBudgetEnvelopeLedgers(year, month)
+  const ledgers = await listBudgetEnvelopeLedgers(event, year, month)
   const reserves = await listReserveEnvelopeBalances()
 
   const [accountsRes, categoriesRes, expensesRes] = await Promise.all([
