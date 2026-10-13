@@ -103,7 +103,15 @@ export function monthsOfChargesCovered(totalSaved: number, monthlyFixedCharges: 
 }
 
 export function monthContributions(input: {
+  /** The shown month's entries. Only the manual ones count: they are the household's versement. */
   entries: { savingsGoalId: string, amount: number, source?: 'manual' | 'closure' }[]
+  /**
+   * The previous month's closure entries. A month is closed during the next one and its
+   * leftovers stay dated in the closed month, so they surface on the month after it.
+   */
+  closureEntries?: { savingsGoalId: string, amount: number, source?: 'manual' | 'closure' }[]
+  /** Lower-case name of the closed month, e.g. "septembre". */
+  closureMonthName?: string
   poches: { id: string, name: string, receivesSalaryVariance: boolean }[]
   salaryVariance: number
 }): ContributionRow[] {
@@ -117,9 +125,14 @@ export function monthContributions(input: {
     rows.push({ kind: 'contribution', label: 'Versement du mois', detail: 'réparti sur les poches', amount: contributed })
   }
 
-  const fromClosure = input.entries.filter(isClosure).reduce((sum, entry) => sum + entry.amount, 0)
+  const fromClosure = (input.closureEntries ?? []).filter(isClosure).reduce((sum, entry) => sum + entry.amount, 0)
   if (fromClosure !== 0) {
-    rows.push({ kind: 'closure', label: 'Reliquats de clôture', detail: "reliquats d'enveloppes du mois", amount: fromClosure })
+    rows.push({
+      kind: 'closure',
+      label: 'Reliquats de clôture',
+      detail: input.closureMonthName ? `clôture de ${input.closureMonthName}` : 'clôture du mois précédent',
+      amount: fromClosure,
+    })
   }
 
   if (input.salaryVariance !== 0) {

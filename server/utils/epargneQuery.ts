@@ -12,6 +12,7 @@ import type { PocheView, ContributionRow } from './domain/savings'
 import { summariseIncome, compute503020 } from './domain/dashboard'
 import type { Bucket5030 } from './domain/dashboard'
 import { summariseFixedCharges } from './domain/accountsOverview'
+import { monthName } from './domain/closure'
 
 // This route is deliberately Data-API only. It must never import listBudgetEnvelopeLedgers
 // or listReserveEnvelopeBalances: those hold pool slots, and the pool-wait queue has no
@@ -119,6 +120,10 @@ export async function fetchEpargne(
   const expenseRows = (expenseRes.data ?? []) as any[]
 
   const monthEntries = allEntries.filter((entry) => entry.year === year && entry.month === month)
+  // The previous month is closed during this one; its leftovers stay dated in it.
+  const previous = month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 }
+  const previousClosureEntries = allEntries.filter((entry) =>
+    entry.year === previous.year && entry.month === previous.month && entry.source === 'closure')
   const savedThisMonth = monthEntries.reduce((sum, entry) => sum + entry.amount, 0)
 
   const taggedSpend = expenseRows
@@ -170,6 +175,8 @@ export async function fetchEpargne(
     },
     contributions: monthContributions({
       entries: monthEntries,
+      closureEntries: previousClosureEntries,
+      closureMonthName: monthName(previous.month),
       poches,
       salaryVariance: income.salaryVariance,
     }),

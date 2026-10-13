@@ -185,19 +185,31 @@ describe('monthContributions', () => {
     expect(monthContributions({ entries: [], poches: [], salaryVariance: 0 })).toEqual([])
   })
 
-  it('lists closure leftovers as their own row, apart from the manual versement', () => {
+  it('lists the previous month closure leftovers as their own row, named after that month', () => {
+    // A closure of September happens during October and its savings stay dated September:
+    // October's page shows them, apart from the household's own versement.
     const rows = monthContributions({
-      entries: [
-        { savingsGoalId: 'a', amount: 345, source: 'manual' },
+      entries: [{ savingsGoalId: 'a', amount: 345, source: 'manual' }],
+      closureEntries: [
         { savingsGoalId: 'a', amount: 26, source: 'closure' },
         { savingsGoalId: 'b', amount: 10, source: 'closure' },
       ],
+      closureMonthName: 'septembre',
       poches: [],
       salaryVariance: 0,
     })
     expect(rows).toEqual([
       { kind: 'contribution', label: 'Versement du mois', detail: 'réparti sur les poches', amount: 345 },
-      { kind: 'closure', label: 'Reliquats de clôture', detail: "reliquats d'enveloppes du mois", amount: 36 },
+      { kind: 'closure', label: 'Reliquats de clôture', detail: 'clôture de septembre', amount: 36 },
     ])
+  })
+
+  it('never counts a closure entry of the shown month as a versement', () => {
+    const rows = monthContributions({
+      entries: [{ savingsGoalId: 'a', amount: 26, source: 'closure' }],
+      poches: [],
+      salaryVariance: 0,
+    })
+    expect(rows).toEqual([])
   })
 })

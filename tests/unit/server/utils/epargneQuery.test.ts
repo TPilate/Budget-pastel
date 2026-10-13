@@ -148,15 +148,32 @@ describe('fetchEpargne', () => {
     expect(payload.totals.monthsOfChargesCovered).toBeNull()
   })
 
-  it('separates closure entries from manual ones in the month contributions', async () => {
+  it('shows the previous month closure leftovers beside this month manual entries', async () => {
+    // September is closed during October; its leftovers stay dated September.
     mocks.responseByTable.savings_entries = {
       data: [
         { savings_goal_id: 'a', year: 2026, month: 10, amount: '100.00', source: 'manual' },
-        { savings_goal_id: 'a', year: 2026, month: 10, amount: '26.00', source: 'closure' },
+        { savings_goal_id: 'a', year: 2026, month: 9, amount: '26.00', source: 'closure' },
+        { savings_goal_id: 'a', year: 2026, month: 9, amount: '500.00', source: 'manual' },
+        { savings_goal_id: 'a', year: 2026, month: 8, amount: '7.00', source: 'closure' },
       ],
       error: null,
     }
     const payload = await fetchEpargne(fakeEvent(), 2026, 10, 6)
-    expect(payload.contributions.map((row) => [row.kind, row.amount])).toEqual([['contribution', 100], ['closure', 26]])
+    expect(payload.contributions).toEqual([
+      { kind: 'contribution', label: 'Versement du mois', detail: 'réparti sur les poches', amount: 100 },
+      { kind: 'closure', label: 'Reliquats de clôture', detail: 'clôture de septembre', amount: 26 },
+    ])
+  })
+
+  it('looks back to December of the previous year for January', async () => {
+    mocks.responseByTable.savings_entries = {
+      data: [{ savings_goal_id: 'a', year: 2026, month: 12, amount: '12.50', source: 'closure' }],
+      error: null,
+    }
+    const payload = await fetchEpargne(fakeEvent(), 2027, 1, 6)
+    expect(payload.contributions).toEqual([
+      { kind: 'closure', label: 'Reliquats de clôture', detail: 'clôture de décembre', amount: 12.5 },
+    ])
   })
 })
