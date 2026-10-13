@@ -5,13 +5,17 @@ interface ReferenceItem {
   emoji: string
 }
 
-const { data: categories, refresh: refreshCategories } = await useFetch<ReferenceItem[]>('/api/categories', { default: () => [] })
-const { data: envelopes, refresh: refreshEnvelopes } = await useFetch<ReferenceItem[]>('/api/envelopes', { default: () => [] })
-const { data: incomeTypes, refresh: refreshIncomeTypes } = await useFetch<ReferenceItem[]>('/api/income-types', { default: () => [] })
-const { data: accounts, refresh: refreshAccounts } = await useFetch<ReferenceItem[]>('/api/accounts', { default: () => [] })
+const { data: page, error, refresh } = useLazyFetch<{
+  categories: ReferenceItem[], envelopes: ReferenceItem[], incomeTypes: ReferenceItem[], accounts: ReferenceItem[]
+}>('/api/pages/parametres', { key: 'page-parametres' })
+const categories = computed(() => page.value?.categories ?? [])
+const envelopes = computed(() => page.value?.envelopes ?? [])
+const incomeTypes = computed(() => page.value?.incomeTypes ?? [])
+const accounts = computed(() => page.value?.accounts ?? [])
 
 async function loadAll() {
-  await Promise.all([refreshCategories(), refreshEnvelopes(), refreshIncomeTypes(), refreshAccounts()])
+  // One call instead of four refetches; envelope edits also move the sidebar's ceilings.
+  await Promise.all([refresh(), refreshNuxtData('envelope-ceilings')])
 }
 
 const newCategory = reactive({ name: '', emoji: '', isFixed: false, target: '' })
@@ -127,85 +131,92 @@ async function archive(endpoint: string, id: string) {
     </p>
     <p v-if="errorMessage" class="mt-2 text-xs font-medium text-warn-ink">{{ errorMessage }}</p>
 
-    <section class="mt-4 rounded-[22px] bg-white p-4">
-      <h2 class="text-[13.5px] font-extrabold text-ink">📂 Catégories</h2>
-      <div class="mt-3 flex flex-wrap gap-2">
-        <span
-          v-for="category in categories"
-          :key="category.id"
-          class="flex items-center gap-1 rounded-full bg-app-bg px-3 py-2 text-[11.5px] font-semibold text-ink"
-        >
-          {{ category.emoji }} {{ category.name }}
-          <button type="button" class="text-ink-faint" @click="archive('/api/categories', category.id)">×</button>
-        </span>
-      </div>
-      <div class="mt-3 flex gap-2">
-        <input v-model="newCategory.emoji" placeholder="🛒" class="w-12 rounded-lg border border-divider px-2 py-1 text-center">
-        <input v-model="newCategory.name" placeholder="Nouvelle catégorie" class="flex-1 rounded-lg border border-divider px-2 py-1">
-        <input v-model="newCategory.target" inputmode="decimal" placeholder="Montant" class="w-24 rounded-lg border border-divider px-2 py-1">
-        <label class="flex items-center gap-1 text-[11.5px] font-semibold text-ink-muted">
-          <input v-model="newCategory.isFixed" type="checkbox"> Charge fixe
-        </label>
-        <button type="button" class="rounded-lg bg-ink px-3 py-1 text-white" @click="addCategory">Ajouter</button>
-      </div>
-    </section>
+    <p v-if="error" class="mt-4 rounded-[14px] border border-warn-bg bg-warn-bg p-4 text-[13px] font-semibold text-warn-ink">
+      Impossible de charger les paramètres. Réessayez dans un instant.
+    </p>
 
-    <section class="mt-4 rounded-[22px] bg-white p-4">
-      <h2 class="text-[13.5px] font-extrabold text-ink">👜 Enveloppes</h2>
-      <div class="mt-3 flex flex-wrap gap-2">
-        <span
-          v-for="envelope in envelopes"
-          :key="envelope.id"
-          class="flex items-center gap-1 rounded-full bg-app-bg px-3 py-2 text-[11.5px] font-semibold text-ink"
-        >
-          {{ envelope.emoji }} {{ envelope.name }}
-          <button type="button" class="text-ink-faint" @click="archive('/api/envelopes', envelope.id)">×</button>
-        </span>
-      </div>
-      <div class="mt-3 flex gap-2">
-        <input v-model="newEnvelope.emoji" placeholder="👜" class="w-12 rounded-lg border border-divider px-2 py-1 text-center">
-        <input v-model="newEnvelope.name" placeholder="Nouvelle enveloppe" class="flex-1 rounded-lg border border-divider px-2 py-1">
-        <input v-model="newEnvelope.ceiling" inputmode="decimal" placeholder="Plafond" class="w-24 rounded-lg border border-divider px-2 py-1">
-        <button type="button" class="rounded-lg bg-ink px-3 py-1 text-white" @click="addEnvelope">Ajouter</button>
-      </div>
-    </section>
+    <template v-else-if="page">
+      <section class="mt-4 rounded-[22px] bg-white p-4">
+        <h2 class="text-[13.5px] font-extrabold text-ink">📂 Catégories</h2>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <span
+            v-for="category in categories"
+            :key="category.id"
+            class="flex items-center gap-1 rounded-full bg-app-bg px-3 py-2 text-[11.5px] font-semibold text-ink"
+          >
+            {{ category.emoji }} {{ category.name }}
+            <button type="button" class="text-ink-faint" @click="archive('/api/categories', category.id)">×</button>
+          </span>
+        </div>
+        <div class="mt-3 flex gap-2">
+          <input v-model="newCategory.emoji" placeholder="🛒" class="w-12 rounded-lg border border-divider px-2 py-1 text-center">
+          <input v-model="newCategory.name" placeholder="Nouvelle catégorie" class="flex-1 rounded-lg border border-divider px-2 py-1">
+          <input v-model="newCategory.target" inputmode="decimal" placeholder="Montant" class="w-24 rounded-lg border border-divider px-2 py-1">
+          <label class="flex items-center gap-1 text-[11.5px] font-semibold text-ink-muted">
+            <input v-model="newCategory.isFixed" type="checkbox"> Charge fixe
+          </label>
+          <button type="button" class="rounded-lg bg-ink px-3 py-1 text-white" @click="addCategory">Ajouter</button>
+        </div>
+      </section>
 
-    <section class="mt-4 rounded-[22px] bg-white p-4">
-      <h2 class="text-[13.5px] font-extrabold text-ink">💰 Types de revenus</h2>
-      <div class="mt-3 flex flex-wrap gap-2">
-        <span
-          v-for="incomeType in incomeTypes"
-          :key="incomeType.id"
-          class="flex items-center gap-1 rounded-full bg-app-bg px-3 py-2 text-[11.5px] font-semibold text-ink"
-        >
-          {{ incomeType.emoji }} {{ incomeType.name }}
-          <button type="button" class="text-ink-faint" @click="archive('/api/income-types', incomeType.id)">×</button>
-        </span>
-      </div>
-      <div class="mt-3 flex gap-2">
-        <input v-model="newIncomeType.emoji" placeholder="💰" class="w-12 rounded-lg border border-divider px-2 py-1 text-center">
-        <input v-model="newIncomeType.name" placeholder="Nouveau type" class="flex-1 rounded-lg border border-divider px-2 py-1">
-        <button type="button" class="rounded-lg bg-ink px-3 py-1 text-white" @click="addIncomeType">Ajouter</button>
-      </div>
-    </section>
+      <section class="mt-4 rounded-[22px] bg-white p-4">
+        <h2 class="text-[13.5px] font-extrabold text-ink">👜 Enveloppes</h2>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <span
+            v-for="envelope in envelopes"
+            :key="envelope.id"
+            class="flex items-center gap-1 rounded-full bg-app-bg px-3 py-2 text-[11.5px] font-semibold text-ink"
+          >
+            {{ envelope.emoji }} {{ envelope.name }}
+            <button type="button" class="text-ink-faint" @click="archive('/api/envelopes', envelope.id)">×</button>
+          </span>
+        </div>
+        <div class="mt-3 flex gap-2">
+          <input v-model="newEnvelope.emoji" placeholder="👜" class="w-12 rounded-lg border border-divider px-2 py-1 text-center">
+          <input v-model="newEnvelope.name" placeholder="Nouvelle enveloppe" class="flex-1 rounded-lg border border-divider px-2 py-1">
+          <input v-model="newEnvelope.ceiling" inputmode="decimal" placeholder="Plafond" class="w-24 rounded-lg border border-divider px-2 py-1">
+          <button type="button" class="rounded-lg bg-ink px-3 py-1 text-white" @click="addEnvelope">Ajouter</button>
+        </div>
+      </section>
 
-    <section class="mt-4 rounded-[22px] bg-white p-4">
-      <h2 class="text-[13.5px] font-extrabold text-ink">🏦 Comptes</h2>
-      <div class="mt-3 flex flex-wrap gap-2">
-        <span
-          v-for="account in accounts"
-          :key="account.id"
-          class="flex items-center gap-1 rounded-full bg-app-bg px-3 py-2 text-[11.5px] font-semibold text-ink"
-        >
-          {{ account.emoji }} {{ account.name }}
-          <button type="button" class="text-ink-faint" @click="archive('/api/accounts', account.id)">×</button>
-        </span>
-      </div>
-      <div class="mt-3 flex gap-2">
-        <input v-model="newAccount.emoji" placeholder="🏦" class="w-12 rounded-lg border border-divider px-2 py-1 text-center">
-        <input v-model="newAccount.name" placeholder="Nouveau compte" class="flex-1 rounded-lg border border-divider px-2 py-1">
-        <button type="button" class="rounded-lg bg-ink px-3 py-1 text-white" @click="addAccount">Ajouter</button>
-      </div>
-    </section>
+      <section class="mt-4 rounded-[22px] bg-white p-4">
+        <h2 class="text-[13.5px] font-extrabold text-ink">💰 Types de revenus</h2>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <span
+            v-for="incomeType in incomeTypes"
+            :key="incomeType.id"
+            class="flex items-center gap-1 rounded-full bg-app-bg px-3 py-2 text-[11.5px] font-semibold text-ink"
+          >
+            {{ incomeType.emoji }} {{ incomeType.name }}
+            <button type="button" class="text-ink-faint" @click="archive('/api/income-types', incomeType.id)">×</button>
+          </span>
+        </div>
+        <div class="mt-3 flex gap-2">
+          <input v-model="newIncomeType.emoji" placeholder="💰" class="w-12 rounded-lg border border-divider px-2 py-1 text-center">
+          <input v-model="newIncomeType.name" placeholder="Nouveau type" class="flex-1 rounded-lg border border-divider px-2 py-1">
+          <button type="button" class="rounded-lg bg-ink px-3 py-1 text-white" @click="addIncomeType">Ajouter</button>
+        </div>
+      </section>
+
+      <section class="mt-4 rounded-[22px] bg-white p-4">
+        <h2 class="text-[13.5px] font-extrabold text-ink">🏦 Comptes</h2>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <span
+            v-for="account in accounts"
+            :key="account.id"
+            class="flex items-center gap-1 rounded-full bg-app-bg px-3 py-2 text-[11.5px] font-semibold text-ink"
+          >
+            {{ account.emoji }} {{ account.name }}
+            <button type="button" class="text-ink-faint" @click="archive('/api/accounts', account.id)">×</button>
+          </span>
+        </div>
+        <div class="mt-3 flex gap-2">
+          <input v-model="newAccount.emoji" placeholder="🏦" class="w-12 rounded-lg border border-divider px-2 py-1 text-center">
+          <input v-model="newAccount.name" placeholder="Nouveau compte" class="flex-1 rounded-lg border border-divider px-2 py-1">
+          <button type="button" class="rounded-lg bg-ink px-3 py-1 text-white" @click="addAccount">Ajouter</button>
+        </div>
+      </section>
+    </template>
+    <PageSkeleton v-else />
   </div>
 </template>

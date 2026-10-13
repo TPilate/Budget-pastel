@@ -24,7 +24,7 @@ interface EpargnePayload {
   contributions: { kind: string, label: string, detail: string, amount: number }[]
 }
 
-const { data: epargne, error, refresh } = await useFetch<EpargnePayload>('/api/epargne', {
+const { data: epargne, error, refresh } = useLazyFetch<EpargnePayload>('/api/epargne', {
   key: 'epargne',
 })
 
@@ -262,5 +262,6 @@ async function createPoche() {
         </section>
       </div>
     </div>
+    <PageSkeleton v-else />
   </div>
 </template>

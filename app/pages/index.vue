@@ -22,22 +22,17 @@ interface DashboardPayload {
   recentMovements: { id: string, type: string, date: string, label: string, envelopeLabel: string, origin: string, amount: number, sign: string }[]
 }
 
-const { data: dashboard, error, refresh } = await useFetch<DashboardPayload>('/api/dashboard', {
-  key: 'dashboard',
-})
-
-// Lazy and client-only: the closure button is secondary and must never hold up the
-// dashboard's first render.
-const { data: closureStatus } = useLazyFetch<{ closableMonth: { year: number, month: number, label: string, name: string } | null }>(
-  '/api/closure/status',
-  { key: 'closure-status', server: false },
-)
-
 interface SavingsGoal { id: string, name: string }
-const { data: goals, error: goalsError } = await useFetch<SavingsGoal[]>('/api/savings-goals', {
-  key: 'savings-goals-for-dashboard',
-  default: () => [],
-})
+interface DashboardPage {
+  dashboard: DashboardPayload
+  goals: SavingsGoal[]
+  closureStatus: { closableMonth: { year: number, month: number, label: string, name: string } | null }
+}
+
+const { data: page, error, refresh } = useLazyFetch<DashboardPage>('/api/pages/dashboard', { key: 'page-dashboard' })
+const dashboard = computed(() => page.value?.dashboard ?? null)
+const goals = computed(() => page.value?.goals ?? [])
+const closureStatus = computed(() => page.value?.closureStatus ?? null)
 
 // With no income recorded, every percentage is meaningless and the donut would be a
 // flat ring. The page shows a prompt instead — the same lesson as /comptes, where a
@@ -316,10 +311,6 @@ async function recordSavings() {
             <span class="text-[11.5px] font-semibold text-ink-faint">versés ce mois</span>
           </p>
 
-          <p v-if="goalsError" class="pt-2 text-[11.5px] font-semibold text-warn-ink">
-            Impossible de charger les objectifs d'épargne. Le formulaire ci-dessous est indisponible.
-          </p>
-
           <ul v-if="dashboard.savings.byGoal.length" class="flex flex-col pt-3">
             <li v-for="goal in dashboard.savings.byGoal" :key="goal.goalId" class="flex items-center justify-between py-1.5 text-[12.5px]">
               <span class="font-semibold text-ink">{{ goal.goalName }}</span>
@@ -358,5 +349,6 @@ async function recordSavings() {
         </section>
       </div>
     </div>
+    <PageSkeleton v-else />
   </div>
 </template>

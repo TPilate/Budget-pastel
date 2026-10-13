@@ -13,7 +13,7 @@ interface AccountsOverview {
   variableSpend: { id: string, name: string, spent: number, ceiling: number }[]
 }
 
-const { data: overview, error, refresh } = await useFetch<AccountsOverview>('/api/accounts/overview', {
+const { data: overview, error, refresh } = useLazyFetch<AccountsOverview>('/api/accounts/overview', {
   key: 'accounts-overview',
 })
 
@@ -161,5 +161,6 @@ const hasNoRecordedBalances = computed(() => {
         </ul>
       </section>
     </div>
+    <PageSkeleton v-else />
   </div>
 </template>

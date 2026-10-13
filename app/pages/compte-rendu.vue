@@ -17,7 +17,7 @@ interface ClosurePagePayload {
 }
 interface Choice { destination: Destination | null, savingsGoalId: string | null, targetEnvelopeId: string | null }
 
-const { data: closure, error, refresh } = await useFetch<ClosurePagePayload>('/api/closure', { key: 'closure' })
+const { data: closure, error, refresh } = useLazyFetch<ClosurePagePayload>('/api/closure', { key: 'closure' })
 
 const isHydrated = ref(false)
 onMounted(() => {
@@ -264,6 +264,7 @@ async function confirmClosure() {
         </section>
       </div>
     </div>
+    <PageSkeleton v-else />
 
     <UModal v-model:open="isConfirmOpen" title="Confirmer la clôture">
       <template #body>

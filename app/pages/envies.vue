@@ -15,21 +15,17 @@ interface WishlistItemView {
   envelopeRemaining: number | null
 }
 
-const { data: items, error, refresh } = await useFetch<WishlistItemView[]>('/api/wishlist', {
-  key: 'wishlist',
-  default: () => [],
-})
-
 interface EnvelopeOption {
   id: string
   name: string
   emoji: string
 }
 
-const { data: envelopeOptions } = await useFetch<EnvelopeOption[]>('/api/envelopes', {
-  key: 'envelopes-for-wishlist',
-  default: () => [],
-})
+const { data: page, error, refresh } = useLazyFetch<{ items: WishlistItemView[], envelopes: EnvelopeOption[] }>(
+  '/api/pages/envies', { key: 'page-envies' },
+)
+const items = computed(() => page.value?.items ?? [])
+const envelopeOptions = computed(() => page.value?.envelopes ?? [])
 
 const sortMode = ref<'priority' | 'price'>('priority')
 
@@ -169,7 +165,7 @@ async function createItem() {
       Impossible de charger les envies. Réessayez dans un instant.
     </p>
 
-    <template v-else>
+    <template v-else-if="page">
       <!-- The design places this tally in the app sidebar, but AppSidebar renders
            SidebarCeilingsWidget unconditionally and knows nothing about the current
            route. Making it route-aware is a larger change than this page warrants, so
@@ -253,5 +249,6 @@ async function createItem() {
         </section>
       </div>
     </template>
+    <PageSkeleton v-else />
   </div>
 </template>

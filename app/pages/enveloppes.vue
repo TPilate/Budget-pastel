@@ -20,10 +20,16 @@ interface ReserveEnvelopeBalance {
   expensesTotal: number
 }
 
-const [{ data: envelopes, error: envelopesError, refresh: refreshEnvelopes }, { data: reserves, error: reservesError }] = await Promise.all([
-  useFetch<BudgetEnvelopeLedger[]>('/api/envelopes/ceilings', { key: 'envelope-ceilings' }),
-  useFetch<ReserveEnvelopeBalance[]>('/api/envelopes/reserves', { key: 'reserve-envelopes' }),
-])
+const { data: page, error, refresh } = useLazyFetch<{ envelopes: BudgetEnvelopeLedger[], reserves: ReserveEnvelopeBalance[] }>(
+  '/api/pages/enveloppes', { key: 'page-enveloppes' },
+)
+const envelopes = computed(() => page.value?.envelopes ?? null)
+const reserves = computed(() => page.value?.reserves ?? null)
+const envelopesError = error
+const reservesError = error
+async function refreshEnvelopes() {
+  await Promise.all([refresh(), refreshNuxtData('envelope-ceilings')])
+}
 
 const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 const now = new Date()
@@ -121,7 +127,7 @@ function formatDate(isoDate: string) {
       <p v-if="envelopesError" class="py-6 text-center text-[12.5px] font-semibold text-warn-ink">
         Impossible de charger les enveloppes.
       </p>
-      <table v-else class="w-full text-left text-[12.5px]">
+      <table v-else-if="envelopes" class="w-full text-left text-[12.5px]">
         <thead>
           <tr class="text-[10.5px] font-bold uppercase tracking-wide text-ink-faint">
             <th class="pb-2">Enveloppe</th>
@@ -173,12 +179,13 @@ function formatDate(isoDate: string) {
           </tr>
         </tfoot>
       </table>
+      <PageSkeleton v-else />
     </div>
 
     <p v-if="reservesError" class="rounded-[22px] bg-white p-4 text-[12.5px] font-semibold text-warn-ink">
       Impossible de charger les enveloppes de réserve.
     </p>
-    <div v-else class="grid grid-cols-2 gap-4">
+    <div v-else-if="reserves" class="grid grid-cols-2 gap-4">
       <div v-for="reserve in reserves" :key="reserve.id" class="rounded-[22px] bg-toggle-track p-4">
         <p class="text-[12.5px] font-bold text-ink">{{ reserve.emoji }} {{ reserve.name }}</p>
         <p class="mt-1 text-[20px] font-extrabold text-ink">{{ formatEuro(reserve.balance) }} <span class="text-[11px] font-semibold text-ink-muted">disponibles</span></p>
