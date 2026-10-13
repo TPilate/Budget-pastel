@@ -6,7 +6,7 @@ describe('report formatting', () => {
   it('uses plain spaces so the embedded font never needs U+202F or U+00A0', () => {
     expect(formatPdfEuro(1234.5)).toBe('1 234,50 €')
     expect(formatPdfEuro(-12)).toBe('-12,00 €')
-    expect(formatPdfEuro(1234.5)).not.toMatch(/[  ]/)
+    expect(formatPdfEuro(1234.5)).not.toMatch(/[\u202f\u00a0]/)
   })
 
   it('formats dates the French way, in Paris time', () => {
@@ -35,8 +35,8 @@ describe('buildReportLayout', () => {
   it('shows envelopes with their destination, and overspends in the warning tone', () => {
     const table = page1.find((b) => b.kind === 'table' && b.columns[0].header === 'Enveloppe') as any
     expect(table.rows).toEqual([
-      { cells: ['🥂 Sorties', '110,00 €', '84,00 €', '26,00 €', 'Reporté'] },
-      { cells: ['✈️ Voyage', '0,00 €', '12,00 €', '-12,00 €', 'Déduit le mois suivant'], tone: 'warn' },
+      { cells: ['Sorties', '110,00 €', '84,00 €', '26,00 €', 'Reporté'] },
+      { cells: ['Voyage', '0,00 €', '12,00 €', '-12,00 €', 'Déduit le mois suivant'], tone: 'warn' },
     ])
   })
 
@@ -44,11 +44,11 @@ describe('buildReportLayout', () => {
     const table = page2.find((b) => b.kind === 'table' && b.columns[0].header === 'Date') as any
     expect(table.rows).toEqual([
       { cells: ['03/09', 'Loyer', '—', '650,00 €'] },
-      { cells: ['', '🏠 Loyer', '', '650,00 €'], tone: 'strong' },
+      { cells: ['', 'Loyer', '', '650,00 €'], tone: 'strong' },
       { cells: ['12/09', 'Resto Le Bouillon', 'Sorties', '64,00 €'] },
-      { cells: ['', '🍽️ Restaurants', '', '64,00 €'], tone: 'strong' },
+      { cells: ['', 'Restaurants', '', '64,00 €'], tone: 'strong' },
       { cells: ['14/09', 'Monoprix', '—', '520,50 €'] },
-      { cells: ['', '🛒 Courses', '', '520,50 €'], tone: 'strong' },
+      { cells: ['', 'Courses', '', '520,50 €'], tone: 'strong' },
     ])
   })
 
@@ -61,6 +61,17 @@ describe('buildReportLayout', () => {
       ["Vers d'autres enveloppes", '0,00 €'],
       ['Dépassements déduits', '12,00 €'],
     ])
+  })
+
+  it('shows names only: no emoji on either page, the font has no glyph for them', () => {
+    const texts = [page1, page2].flat().flatMap((b) => {
+      if (b.kind === 'title') return [b.text, b.subtitle]
+      if (b.kind === 'tiles') return b.tiles.flatMap((t) => [t.label, t.value])
+      if (b.kind === 'table') return [...b.columns.map((c) => c.header), ...b.rows.flatMap((r) => r.cells)]
+      return [b.text]
+    })
+    expect(texts.length).toBeGreaterThan(20)
+    for (const text of texts) expect(text).not.toMatch(/\p{Extended_Pictographic}/u)
   })
 
   it('writes a note instead of an empty table', () => {

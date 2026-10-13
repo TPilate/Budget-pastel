@@ -14,7 +14,7 @@ export type LayoutBlock =
 
 /** formatEuro with plain spaces: Intl's U+202F / U+00A0 may be missing from the embedded font. */
 export function formatPdfEuro(value: number): string {
-  return formatEuro(value).replace(/[  ]/g, ' ')
+  return formatEuro(value).replace(/[\u202f\u00a0]/g, ' ')
 }
 
 export function formatPdfDate(isoDate: string): string {
@@ -25,7 +25,7 @@ export function formatPdfDate(isoDate: string): string {
 const CLOSED_AT = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long', year: 'numeric' })
 
 export function formatClosedAt(iso: string): string {
-  return CLOSED_AT.format(new Date(iso)).replace(/[  ]/g, ' ')
+  return CLOSED_AT.format(new Date(iso)).replace(/[\u202f\u00a0]/g, ' ')
 }
 
 const percent = (value: number) => `${value} %`
@@ -68,7 +68,7 @@ export function buildReportLayout(s: ReportSnapshotV1): LayoutBlock[][] {
             cells: [
               formatPdfDate(income.date),
               income.targetEnvelopeName ? `${income.label} → ${income.targetEnvelopeName}` : income.label,
-              `${income.typeEmoji} ${income.typeName}`,
+              income.typeName,
               formatPdfEuro(income.amount),
             ],
           })),
@@ -85,7 +85,7 @@ export function buildReportLayout(s: ReportSnapshotV1): LayoutBlock[][] {
       ],
       rows: s.envelopes.map((envelope) => ({
         cells: [
-          `${envelope.emoji} ${envelope.name}`,
+          envelope.name,
           formatPdfEuro(envelope.ceiling),
           formatPdfEuro(envelope.netSpent),
           formatPdfEuro(envelope.leftover),
@@ -109,7 +109,7 @@ export function buildReportLayout(s: ReportSnapshotV1): LayoutBlock[][] {
       cells: [formatPdfDate(expense.date), expense.label, expense.envelopeName ?? '—', formatPdfEuro(expense.amount)],
     })),
     {
-      cells: ['', `${group.emoji} ${name}`, '', formatPdfEuro(group.rows.reduce((total, e) => total + e.amount, 0))],
+      cells: ['', name, '', formatPdfEuro(group.rows.reduce((total, e) => total + e.amount, 0))],
       tone: 'strong' as const,
     },
   ])
