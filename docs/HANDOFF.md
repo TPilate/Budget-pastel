@@ -222,8 +222,9 @@ deliberately, not an oversight.
 Vercel settings to check (household checklist, not code):
 
 - [ ] Enable **Fluid compute** (*Vercel project -> Settings -> Functions*).
-- [ ] Compare the Supabase project region (*Supabase -> Project Settings -> General*) with
-  `vercel.json`'s `"regions": ["fra1"]`; align them if they differ.
+- [x] Compare the Supabase project region (*Supabase -> Project Settings -> General*) with
+  `vercel.json`'s `"regions": ["fra1"]`. Checked 2026-10-13: Supabase is Central EU (Frankfurt),
+  the same city as `fra1`, so there is no cross-region hop to remove.
 - [ ] Only then consider a keep-warm ping (spec section 6.3).
 
 Navigation time, click to data on screen (local dev measures are from `perf.spec.ts`, two runs;
