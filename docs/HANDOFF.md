@@ -1,6 +1,7 @@
 # Handoff — where this project stands
 
-**Last updated:** 2026-10-13, at commit `d6817d7` on `main` (pushed to `origin`).
+**Last updated:** 2026-10-13, on top of commit `23ed149` on `main`. The Compte rendu work is
+committed locally but **not pushed, not migrated and not E2E-tested** — see §6.
 
 This file is the "pick up on another computer" summary. Everything below is verified against
 the repository as of that commit, not recalled from memory.
@@ -41,8 +42,8 @@ is what caused the original infinite-loading bug on the home page. Measured: the
 ```bash
 npm run dev                  # dev server
 npm run build                # production build (run this before believing anything works)
-npm test                     # vitest — currently 200 passing across 25 files
-npm run test:e2e             # playwright — currently 26 passing
+npm test                     # vitest — currently 279 passing across 37 files
+npm run test:e2e             # playwright — 26 passing before the Compte rendu milestone; the new `compte-rendu.spec.ts` and dashboard test have never run
 npm run db:generate          # drizzle-kit generate (migrations)
 npm run db:migrate           # drizzle-kit migrate
 npm run seed:user            # one-off, creates the household user
@@ -55,7 +56,7 @@ rows. See §5.
 
 ## 3. What is built
 
-Seven of eight sidebar entries have pages. All of them are French-facing.
+All eight sidebar entries have pages. All of them are French-facing.
 
 | Route | State |
 |---|---|
@@ -66,10 +67,21 @@ Seven of eight sidebar entries have pages. All of them are French-facing.
 | `/mouvements` | Done — unified feed |
 | `/envies` | Done — wishlist by size |
 | `/comptes` | Done — accounts, fixed charges with editable amounts |
-| `/epargne` | **Done, most recent milestone** — poches with inline editing, six-month history, 50/30/20 + gap advice, month contributions, sidebar total |
-| `/compte-rendu` | **NOT BUILT.** The sidebar links to it, so clicking it 404s today. |
+| `/epargne` | Done — poches with inline editing, six-month history, 50/30/20 + gap advice, month contributions, sidebar total |
+| `/compte-rendu` | **Done in code, most recent milestone** — month closure, archives, PDF report. Not yet live; see §6. |
 
-### The Épargne milestone (just finished)
+### The Compte rendu milestone (just finished, not yet live)
+
+Spec `docs/superpowers/specs/2026-10-13-compte-rendu-design.md`, plan
+`docs/superpowers/plans/2026-10-13-compte-rendu.md`. Files worth knowing:
+
+- `server/utils/domain/closure.ts` and `server/utils/domain/reportSnapshot.ts` — pure logic
+- `server/utils/closureQuery.ts` (read side) and `server/utils/closureService.ts` (closing)
+- `server/utils/reportLayout.ts` and `server/utils/reportPdf.ts` — the PDF report
+- `drizzle/migrations/0006_close_month.sql` — the `close_month` function (and `0005_warm_hellcat.sql`)
+- `app/pages/compte-rendu.vue`
+
+### The Épargne milestone
 
 Spec `docs/superpowers/specs/2026-10-03-epargne-design.md`, plan
 `docs/superpowers/plans/2026-10-03-epargne.md`. Five tasks, each reviewed, plus a final
@@ -94,6 +106,12 @@ but the live database *has* RLS enabled on all 17 tables via the hand-written
 `drizzle/migrations/0002_enable_rls.sql`. A push computes that as drift and silently
 disables it, which would re-open a hole where the whole database was readable and writable
 through the public Data API with just the anon key. Generate migrations; never push.
+
+**Closed months are frozen.** Every create endpoint calls `assertMonthOpen`; any new movement
+endpoint must too, or it can write into a month whose report is already archived.
+
+**`close_month` lives outside Drizzle.** It is in a hand-written migration. Changing what a
+closure writes means a new migration that replaces the function, not a schema edit.
 
 **The connection pool is the project's main hazard.** `server/utils/db.ts` sets `max: 12`,
 and postgres.js's pool-wait queue has **no timeout** — a request that cannot get a slot waits
@@ -138,17 +156,38 @@ The live database was left clean at `d6817d7`: three real poches, zero savings e
 The proper fix is in the follow-ups file — an `archived_at` column on `savings_goals`, which
 is the only reference table without one.
 
-## 6. Suggested next step
+**The E2E never closes a month** — only the household does, on the live site.
+`tests/e2e/compte-rendu-closed.spec.ts` (not yet written, see §6) depends on September 2026
+having been closed for real.
 
-The parent spec (`docs/superpowers/specs/2026-09-19-budget-planner-pwa-design.md` §12) puts
-the month closure flow next, and it is also the last unbuilt page:
+## 6. Pending live steps and next steps
 
-> **Milestone 5 — `/compte-rendu`:** month closure flow + PDF report generation + archive +
-> scheduled email.
+### Pending live steps for Compte rendu (not yet done)
 
-Two deliberate omissions elsewhere are waiting on it, and should be picked up with it: the
-dashboard's `Clôturer le mois` button and the Épargne page's `Reliquats de clôture` row were
-both left out rather than rendered as permanently-pending UI.
+No `.env` was available when the milestone was built, so none of this has touched the live
+database or production. In order:
+
+1. Copy `.env` onto the machine (see §1).
+2. Apply migrations `0005_warm_hellcat.sql` and `0006_close_month.sql` with
+   `npm run db:migrate`. Both are additive; first confirm `monthly_reports` is empty, because
+   `snapshot` is NOT NULL without a default. Then check `close_month` exists with
+   `prosecdef = false`.
+3. Run `npm run test:e2e` — the new `tests/e2e/compte-rendu.spec.ts` and the new dashboard test
+   have never been executed.
+4. Deploy (pushing `main` deploys production).
+5. The household performs the first real closure of September 2026; then verify the rows
+   listed in `docs/superpowers/plans/2026-10-13-compte-rendu.md`, Task 11 Step 3.
+6. Add `tests/e2e/compte-rendu-closed.spec.ts` (code in the same plan, Task 11 Step 4) and run it.
+
+### Next features
+
+After the above: the scheduled email (it uses `monthly_reports.emailed_at`), then the
+page-load work and the mock-data cleanup already queued.
+
+### Earlier note, still true
+
+The parent spec (`docs/superpowers/specs/2026-09-19-budget-planner-pwa-design.md` §12,
+milestone 5) also lists a scheduled email; that is the only part not built.
 
 Also unbuilt and, unlike the above, **undesigned**: livrets. `livrets`,
 `livret_contributions` and `livret_yearly_history` exist in the schema with 0 rows, no
