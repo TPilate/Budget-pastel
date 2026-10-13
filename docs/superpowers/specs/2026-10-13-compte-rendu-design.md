@@ -175,7 +175,7 @@ them may import `listBudgetEnvelopeLedgers`.
 | `GET /api/closure/status` | `{ closableMonth: { year, month, label } \| null }`. Cheap: closures + first-data-month only. Used by the dashboard header. |
 | `GET /api/closure` | `closableMonth`, `envelopes` (id, name, emoji, ceiling, netSpent, leftover), `summary` + `rule503020` for "Résumé du mois", `savingsGoals` and `budgetEnvelopes` (destination options), `nextOpening` (date the next closure becomes possible, for the empty state), `archives` (`[{ year, month, label, generatedAt }]`, newest first). |
 | `POST /api/closure` | Body `{ year, month, decisions }` (zod). Rejects with `409` unless `(year, month)` equals `closableMonth`. Recomputes leftovers server-side — never trusts client amounts — then `planClosure` → `buildReportSnapshot` → `rpc('close_month')`. `ClosurePlanError` → `400`; `MONTH_ALREADY_CLOSED` / `PREVIOUS_MONTH_OPEN` → `409`. Returns `{ year, month }`. |
-| `GET /api/reports/[year]/[month].pdf` | `404` if no report. Otherwise renders the snapshot (§6) and responds `application/pdf`, `Content-Disposition: attachment; filename="budget-2026-09.pdf"`. |
+| `GET /api/reports/[year]/[month]` | `400` on an invalid month, `404` if no report. Otherwise renders the snapshot (§6) and responds `application/pdf`, `Content-Disposition: attachment; filename="budget-2026-09.pdf"`. |
 
 The envelope-ledger computation for a single month on the Data API lives in
 `server/utils/closureQuery.ts`, feeding the unchanged `computeEnvelopeLedger`.
@@ -193,6 +193,13 @@ not assumed (§8).
 
 Envelope ceiling edits need no lock: `PATCH /api/envelopes/[id]` writes only
 `default_ceiling`, and §3.3's freeze makes closed months independent of it.
+
+### 5.2 Default ceiling edits reach open months
+
+A closure writes month M+1's allocation with a `base_ceiling` snapshot, so the default
+ceiling alone no longer reaches M+1. `PATCH /api/envelopes/[id]`, when it changes
+`defaultCeiling`, also updates `base_ceiling` on that envelope's allocations for every
+month that is **not** closed. Closed months keep the figure their report used.
 
 ## 6. PDF
 
@@ -291,8 +298,11 @@ next closable month, or the empty state.
   without an M allocation.
 - `buildReportSnapshot`: totals asserted against **hard-coded expected values**, never
   re-derived with the reduce under test.
-- `renderReportPdf` on a fixture snapshot: output starts with `%PDF`, has 2 pages,
-  and its extracted text contains the title and one specific formatted amount.
+- `buildReportLayout` (the pure snapshot → layout step the renderer draws): title,
+  tiles, envelope rows and the closure summary asserted as exact strings; amounts use
+  plain spaces, never U+202F/U+00A0.
+- `renderReportPdf` on a fixture snapshot: output starts with `%PDF`, has 2 pages, and a
+  long expense list continues onto extra pages instead of being cut.
 - `assertMonthOpen`; the manual savings upsert ignoring `closure` rows;
   `monthContributions` emitting the closure row.
 
