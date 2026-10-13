@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
+import { PgDialect } from 'drizzle-orm/pg-core'
 
 const state = vi.hoisted(() => ({ input: null as any }))
 vi.mock('../../../../server/utils/auth', () => ({ requireUser: vi.fn(async () => ({ id: 'u1', email: null })) }))
@@ -27,6 +28,11 @@ describe('PATCH /api/envelopes/[id]', () => {
   beforeEach(() => {
     db.update.mockClear()
     db.set.mockClear()
+    db.where.mockClear()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('carries a new default ceiling into the allocations of every month that is not closed', async () => {
@@ -42,5 +48,25 @@ describe('PATCH /api/envelopes/[id]', () => {
     state.input = { name: 'Sorties' }
     await patchEnvelope({ context: {} })
     expect(db.update).not.toHaveBeenCalled()
+  })
+
+  it('leaves every month before the current Paris month alone, closed or not', async () => {
+    // A finished month that is not closed yet is about to be closed: its report must use
+    // the ceiling the household lived with, not one edited afterwards. 23:30 UTC on
+    // 31 October is already 1 November in Paris.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-31T23:30:00Z'))
+    state.input = { defaultCeiling: 120 }
+    await patchEnvelope({ context: {} })
+
+    // The outer update's condition is the last where() call (the closure subquery is built first).
+    const condition = db.where.mock.calls.at(-1)![0]
+    const { sql, params } = new PgDialect().sqlToQuery(condition)
+    // Inline each $n placeholder with its value so the bound reads as plain SQL.
+    const rendered = sql.replace(/\$(\d+)/g, (_, n) => String(params[Number(n) - 1]))
+    const year = '"monthly_envelope_allocations"."year"'
+    const month = '"monthly_envelope_allocations"."month"'
+    expect(rendered).toContain(`(${year} > 2026 or (${year} = 2026 and ${month} >= 11))`)
+    expect(rendered).toContain('not exists')
   })
 })
