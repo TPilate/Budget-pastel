@@ -51,7 +51,9 @@ setup('authenticate once for the whole run', async ({ page }) => {
   // pays for on-demand compilation. Instrumenting this showed the grant returning 200 and
   // the redirect completing correctly, only past the 5s mark: the assertion was racing a
   // cold server, not catching a broken login.
-  await expect(page).toHaveURL('http://localhost:3000/', { timeout: 30_000 })
+  // Relative to the configured baseURL, so the same setup also signs in when
+  // PERF_BASE_URL points the perf spec at production.
+  await expect(page).toHaveURL(new URL('/', page.url()).href, { timeout: 30_000 })
 
   await page.context().storageState({ path: STORAGE_STATE })
 })

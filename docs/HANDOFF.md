@@ -227,18 +227,19 @@ Vercel settings to check (household checklist, not code):
 - [ ] Only then consider a keep-warm ping (spec section 6.3).
 
 Navigation time, click to data on screen (local dev measures are from `perf.spec.ts`, two runs;
-"before" is from the spec section 2):
+"before" is from the spec section 2; production "after" measured 2026-10-13 right after deploy, warm, over three runs of `perf.spec.ts`. The occasional ~0.8-1 s spikes are Vercel instances spinning up, which Fluid compute reduces):
 
 | Page | Before (production) | After, local dev | After, production |
 |---|---|---|---|
-| Mouvements | about 420 ms, 3 hops | 258-296 ms, 1 call | à mesurer après déploiement |
-| Paramètres | 450-630 ms, 5 hops | 227-257 ms, 1 call | à mesurer après déploiement |
-| Enveloppes | n/a | 510-547 ms, 1 call | à mesurer après déploiement |
-| Épargne | n/a | 213-267 ms, 1 call | à mesurer après déploiement |
-| Comptes | n/a | 435-448 ms, 1 call | à mesurer après déploiement |
-| Envies | n/a | 235-256 ms, 1 call | à mesurer après déploiement |
-| Compte rendu | n/a | 475-548 ms, 1 call | à mesurer après déploiement |
-| Cold TTFB | 2.8 s | n/a | à mesurer après déploiement |
+| Mouvements | about 420 ms, 3 hops | 258-296 ms, 1 call | 236-315 ms (médiane 261), 1 appel |
+| Paramètres | 450-630 ms, 5 hops | 227-257 ms, 1 call | 230 ms, 1 appel |
+| Enveloppes | n/a | 510-547 ms, 1 call | 197-220 ms (médiane 210), 1 appel |
+| Épargne | n/a | 213-267 ms, 1 call | 211-289 ms (médiane 217), 1 appel |
+| Comptes | n/a | 435-448 ms, 1 call | 242-274 ms, pic à 1 063 ms, 1 appel |
+| Envies | n/a | 235-256 ms, 1 call | 254 ms, pic à 811 ms, 1 appel |
+| Compte rendu | n/a | 475-548 ms, 1 call | 215 ms, 1 appel |
+| Tableau de bord | n/a | 242 ms, 1 call | 263 ms, 1 appel |
+| Cold TTFB | 2.8 s | n/a | non mesuré : demande une pause de plusieurs minutes ; à revérifier après activation de Fluid compute |
 
 Local dev numbers are not comparable to production (no network, dev server). The production
 column is filled by running the PERF_BASE_URL command in section 2 after deployment.
