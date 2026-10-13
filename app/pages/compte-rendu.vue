@@ -41,13 +41,6 @@ watch(() => closure.value?.envelopes, (envelopes) => {
 const positive = computed(() => (closure.value?.envelopes ?? []).filter((e) => e.leftover > 0))
 const toDistribute = computed(() => positive.value.reduce((total, e) => total + e.leftover, 0))
 
-function isComplete(choice: Choice | undefined) {
-  if (!choice?.destination) return false
-  if (choice.destination === 'savings') return Boolean(choice.savingsGoalId)
-  if (choice.destination === 'envelope') return Boolean(choice.targetEnvelopeId)
-  return true
-}
-
 function setDestination(envelopeId: string, value: string) {
   const choice = choices.value[envelopeId]
   choice.destination = value as Destination
@@ -64,21 +57,16 @@ function applyToAll(destination: 'carry_over' | 'savings') {
   }
 }
 
-const tiles = computed(() => {
-  const totals = { carried: 0, savings: 0, other: 0, unassigned: 0 }
-  for (const envelope of positive.value) {
-    const choice = choices.value[envelope.id]
-    if (!isComplete(choice)) totals.unassigned += envelope.leftover
-    else if (choice.destination === 'carry_over') totals.carried += envelope.leftover
-    else if (choice.destination === 'savings') totals.savings += envelope.leftover
-    else totals.other += envelope.leftover
-  }
-  return totals
-})
+// Shared by the tiles and the confirmation modal (spec §7.4).
+const tiles = computed(() => closureTotals({
+  envelopes: closure.value?.envelopes ?? [],
+  choices: choices.value,
+  savingsGoals: closure.value?.savingsGoals ?? [],
+}))
 
 const isSubmitting = ref(false)
 const canClose = computed(() => isHydrated.value && !isSubmitting.value
-  && positive.value.every((envelope) => isComplete(choices.value[envelope.id])))
+  && positive.value.every((envelope) => isClosureChoiceComplete(choices.value[envelope.id])))
 
 const envelopeName = (id: string | null) => closure.value?.envelopes.find((e) => e.id === id)?.name ?? ''
 const goalName = (id: string | null) => closure.value?.savingsGoals.find((g) => g.id === id)?.name ?? ''
@@ -188,7 +176,7 @@ async function confirmClosure() {
             </div>
             <div class="rounded-[14px] p-3" :class="tiles.unassigned > 0 ? 'bg-warn-bg' : 'bg-app-bg'">
               <p class="text-[11px] font-semibold text-ink-faint">Non réparti</p>
-              <p class="pt-1 text-[17px] font-extrabold" :class="tiles.unassigned > 0 ? 'text-warn-ink' : 'text-ink'" data-testid="tile-unassigned">{{ formatEuroShort(tiles.unassigned) }}</p>
+              <p class="pt-1 text-[17px] font-extrabold" :class="tiles.unassigned > 0 ? 'text-warn-ink' : 'text-ink'" data-testid="tile-unassigned">{{ formatEuro(tiles.unassigned) }}</p>
             </div>
           </div>
 
@@ -287,6 +275,27 @@ async function confirmClosure() {
           <li v-for="envelope in overspent" :key="envelope.id" class="flex justify-between gap-4 text-warn-ink">
             <span class="font-semibold">{{ envelope.emoji }} {{ envelope.name }} — déduit en {{ closure?.closable?.nextMonthName }}</span>
             <span class="font-extrabold">{{ formatEuro(envelope.leftover) }}</span>
+          </li>
+        </ul>
+        <ul class="mt-3 flex flex-col gap-1 border-t border-divider pt-3 text-[12.5px]" data-testid="recap-totals">
+          <li class="flex justify-between gap-4">
+            <span class="font-semibold text-ink-muted">Reporté sur {{ closure?.closable?.nextMonthName }}</span>
+            <span class="font-extrabold text-ink">{{ formatEuro(tiles.carried) }}</span>
+          </li>
+          <li class="flex justify-between gap-4">
+            <span class="font-semibold text-ink-muted">Vers l'épargne</span>
+            <span class="font-extrabold text-ink">{{ formatEuro(tiles.savings) }}</span>
+          </li>
+          <li v-for="goal in tiles.perGoal" :key="goal.id" class="flex justify-between gap-4 pl-3">
+            <span class="font-semibold text-ink-faint">Vers {{ goal.name }} : {{ formatEuro(goal.amount) }}</span>
+          </li>
+          <li class="flex justify-between gap-4">
+            <span class="font-semibold text-ink-muted">Vers d'autres enveloppes</span>
+            <span class="font-extrabold text-ink">{{ formatEuro(tiles.other) }}</span>
+          </li>
+          <li class="flex justify-between gap-4">
+            <span class="font-semibold text-ink-muted">Dépassements déduits</span>
+            <span class="font-extrabold text-ink">{{ formatEuro(tiles.overspendDeducted) }}</span>
           </li>
         </ul>
         <p class="pt-4 text-[12.5px] font-semibold text-ink-muted">

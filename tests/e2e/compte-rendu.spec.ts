@@ -63,11 +63,12 @@ test('distributes leftovers up to the confirmation, then cancels without writing
 
   if (positive.length > 0) {
     await expect(closeButton).toBeDisabled()
-    await expect(page.getByTestId('tile-unassigned')).not.toHaveText('0 €')
+    await expect(page.getByTestId('tile-unassigned')).not.toHaveText('0,00 €')
     await page.getByRole('button', { name: 'Tout reporter' }).click()
   }
-  // toHaveText, not toContainText: "260 €" contains "0 €".
-  await expect(page.getByTestId('tile-unassigned')).toHaveText('0 €')
+  // toHaveText, not toContainText: "260,00 €" contains "0,00 €". The tile shows cents
+  // (formatEuro), so 0,30 € left unassigned never reads as done.
+  await expect(page.getByTestId('tile-unassigned')).toHaveText('0,00 €')
   await expect(closeButton).toBeEnabled()
 
   await closeButton.click()
