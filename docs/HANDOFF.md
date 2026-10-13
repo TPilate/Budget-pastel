@@ -176,7 +176,13 @@ database or production. In order:
    have never been executed.
 4. Deploy (pushing `main` deploys production).
 5. The household performs the first real closure of September 2026; then verify the rows
-   listed in `docs/superpowers/plans/2026-10-13-compte-rendu.md`, Task 11 Step 3.
+   listed in `docs/superpowers/plans/2026-10-13-compte-rendu.md`, Task 11 Step 3, plus:
+   - download the September PDF from the deployed site (Compte rendu → archives). This is
+     the only proof that the fonts in `server/assets/fonts` load from Nitro's server-assets
+     mount on Vercel; the unit test `tests/unit/server/api/reportRoute.test.ts` only shims
+     that mount;
+   - an expense dated in a month before the latest closed month is refused with the 409
+     message ("<Mois année> est clôturé. Affectez ce mouvement à un mois ouvert.").
 6. Add `tests/e2e/compte-rendu-closed.spec.ts` (code in the same plan, Task 11 Step 4) and run it.
 
 ### Next features
