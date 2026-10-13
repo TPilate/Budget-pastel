@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
 
 const lock = vi.hoisted(() => ({ assertMonthOpen: vi.fn(), input: null as any }))
 vi.mock('../../../../server/utils/monthLock', () => ({ assertMonthOpen: lock.assertMonthOpen }))
@@ -32,6 +32,11 @@ describe('closed-month lock on every create endpoint', () => {
   beforeEach(() => {
     lock.assertMonthOpen.mockReset()
     db.insert.mockClear()
+    db.values.mockClear()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('checks an expense against the month of its date', async () => {
@@ -56,6 +61,17 @@ describe('closed-month lock on every create endpoint', () => {
     lock.input = { fromEnvelopeId: 'a', toEnvelopeId: 'b', amount: 10, reason: 'r' }
     await routes.transfers(event())
     expect(lock.assertMonthOpen).toHaveBeenCalledTimes(1)
+  })
+
+  it('dates a transfer by the Paris month, not UTC', async () => {
+    // 23:30 UTC on 31 October is 00:30 on 1 November in Paris. The form has no month
+    // field, so a UTC date would drop the transfer into October, possibly closed.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-31T23:30:00Z'))
+    lock.input = { fromEnvelopeId: 'a', toEnvelopeId: 'b', amount: 10, reason: 'r' }
+    await routes.transfers(event())
+    expect(lock.assertMonthOpen).toHaveBeenCalledWith(expect.anything(), 2026, 11)
+    expect(db.values).toHaveBeenCalledWith(expect.objectContaining({ date: '2026-11-01', monthAssigned: 11, yearAssigned: 2026 }))
   })
 
   it.each(['expenses', 'incomes', 'transfers', 'savings'])('writes nothing to a closed month (%s)', async (name) => {

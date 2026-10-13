@@ -5,14 +5,18 @@ import { assertMonthOpen } from '../../utils/monthLock'
 import { transfers } from '../../../drizzle/schema'
 import { transferInputSchema } from '../../../shared/schemas/transfer'
 
+// en-CA formats as YYYY-MM-DD.
+const PARIS_DATE = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' })
+
 export default defineEventHandler(async (event) => {
   await requireUser(event)
   const input = await validateBody(event, transferInputSchema)
 
-  // Derive date/month/year from the same UTC-based ISO string, not from
-  // Date's local-timezone getters — mixing UTC parsing with local getters
-  // causes an off-by-one near month boundaries on hosts running behind UTC.
-  const isoDate = new Date().toISOString().slice(0, 10)
+  // The form has no date or month field, so the transfer is dated today in Europe/Paris,
+  // where the household lives. Vercel runs in UTC: between midnight and 01:00/02:00 Paris
+  // on the 1st, a UTC date would drop it into the previous, possibly closed, month.
+  // Date, month and year all come from the same YYYY-MM-DD string.
+  const isoDate = PARIS_DATE.format(new Date())
   const [transferYear, transferMonth] = isoDate.split('-').map(Number)
   // A closed month is frozen: its report and leftovers must stay true.
   await assertMonthOpen(event, transferYear, transferMonth)
