@@ -16,6 +16,8 @@ const navItems = [
 async function handleLogout() {
   if (!confirm('Se déconnecter ?')) return
   await supabase.auth.signOut()
+  // Without this the next navigation would trust the session verified before logout.
+  useState<boolean>(SESSION_STATE_KEY).value = false
   await navigateTo('/login')
 }
 </script>
