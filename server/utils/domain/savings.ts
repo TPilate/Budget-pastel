@@ -13,7 +13,7 @@ export interface PocheView extends PocheInput {
 }
 
 export interface ContributionRow {
-  kind: 'contribution' | 'variance'
+  kind: 'contribution' | 'variance' | 'closure'
   label: string
   detail: string
   amount: number
@@ -103,20 +103,23 @@ export function monthsOfChargesCovered(totalSaved: number, monthlyFixedCharges: 
 }
 
 export function monthContributions(input: {
-  entries: { savingsGoalId: string, amount: number }[]
+  entries: { savingsGoalId: string, amount: number, source?: 'manual' | 'closure' }[]
   poches: { id: string, name: string, receivesSalaryVariance: boolean }[]
   salaryVariance: number
 }): ContributionRow[] {
   const rows: ContributionRow[] = []
 
-  const contributed = input.entries.reduce((sum, entry) => sum + entry.amount, 0)
+  // Closure leftovers are reported apart: they are not a versement the household made.
+  const isClosure = (entry: { source?: 'manual' | 'closure' }) => entry.source === 'closure'
+
+  const contributed = input.entries.filter((entry) => !isClosure(entry)).reduce((sum, entry) => sum + entry.amount, 0)
   if (contributed !== 0) {
-    rows.push({
-      kind: 'contribution',
-      label: 'Versement du mois',
-      detail: 'réparti sur les poches',
-      amount: contributed,
-    })
+    rows.push({ kind: 'contribution', label: 'Versement du mois', detail: 'réparti sur les poches', amount: contributed })
+  }
+
+  const fromClosure = input.entries.filter(isClosure).reduce((sum, entry) => sum + entry.amount, 0)
+  if (fromClosure !== 0) {
+    rows.push({ kind: 'closure', label: 'Reliquats de clôture', detail: "reliquats d'enveloppes du mois", amount: fromClosure })
   }
 
   if (input.salaryVariance !== 0) {

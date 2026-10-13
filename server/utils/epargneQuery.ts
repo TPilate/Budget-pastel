@@ -17,7 +17,7 @@ import { summariseFixedCharges } from './domain/accountsOverview'
 // or listReserveEnvelopeBalances: those hold pool slots, and the pool-wait queue has no
 // timeout, so an exhausted pool hangs a page forever. Nothing here needs envelope ledgers.
 const GOALS_SELECT = 'id,name,target_amount,monthly_amount,note,receives_salary_variance,sort_order'
-const ENTRIES_SELECT = 'savings_goal_id,year,month,amount'
+const ENTRIES_SELECT = 'savings_goal_id,year,month,amount,source'
 const INCOME_SELECT = 'amount,expected_amount,target_envelope_id'
 const EXPENSE_SELECT
   = 'amount,envelope_id,financed_by,'
@@ -94,6 +94,7 @@ export async function fetchEpargne(
     year: row.year,
     month: row.month,
     amount: Number(row.amount),
+    source: (row.source ?? 'manual') as 'manual' | 'closure',
   }))
 
   const { poches, totalBalance, totalMonthly } = summarisePoches(

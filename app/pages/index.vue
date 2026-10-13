@@ -26,6 +26,13 @@ const { data: dashboard, error, refresh } = await useFetch<DashboardPayload>('/a
   key: 'dashboard',
 })
 
+// Lazy and client-only: the closure button is secondary and must never hold up the
+// dashboard's first render.
+const { data: closureStatus } = useLazyFetch<{ closableMonth: { year: number, month: number, label: string, name: string } | null }>(
+  '/api/closure/status',
+  { key: 'closure-status', server: false },
+)
+
 interface SavingsGoal { id: string, name: string }
 const { data: goals, error: goalsError } = await useFetch<SavingsGoal[]>('/api/savings-goals', {
   key: 'savings-goals-for-dashboard',
@@ -142,6 +149,13 @@ async function recordSavings() {
         </span>
       </template>
       <template #actions>
+        <NuxtLink
+          v-if="closureStatus?.closableMonth"
+          to="/compte-rendu"
+          class="rounded-[12px] border border-divider bg-white px-4 py-2 text-[12.5px] font-bold text-ink"
+        >
+          Clôturer {{ closureStatus.closableMonth.name }}
+        </NuxtLink>
         <NuxtLink to="/mouvements" class="rounded-[12px] bg-primary px-4 py-2 text-[12.5px] font-bold text-primary-ink">
           + Nouvelle saisie
         </NuxtLink>

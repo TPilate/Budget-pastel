@@ -147,4 +147,16 @@ describe('fetchEpargne', () => {
     const payload = await fetchEpargne(fakeEvent(), 2026, 10, 6)
     expect(payload.totals.monthsOfChargesCovered).toBeNull()
   })
+
+  it('separates closure entries from manual ones in the month contributions', async () => {
+    mocks.responseByTable.savings_entries = {
+      data: [
+        { savings_goal_id: 'a', year: 2026, month: 10, amount: '100.00', source: 'manual' },
+        { savings_goal_id: 'a', year: 2026, month: 10, amount: '26.00', source: 'closure' },
+      ],
+      error: null,
+    }
+    const payload = await fetchEpargne(fakeEvent(), 2026, 10, 6)
+    expect(payload.contributions.map((row) => [row.kind, row.amount])).toEqual([['contribution', 100], ['closure', 26]])
+  })
 })

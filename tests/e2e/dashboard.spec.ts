@@ -61,3 +61,16 @@ test('shows no month navigation or closure action', async ({ page }) => {
   // Both are explicitly out of scope; a visible dead control reads as broken.
   await expect(page.getByText('Clôturer le mois')).toHaveCount(0)
 })
+
+test('offers the month closure only while a month is closable', async ({ page }) => {
+  const status = await (await page.request.get('/api/closure/status')).json()
+  await expect(page.getByText('Salaire reçu')).toBeVisible({ timeout: 15_000 })
+  const link = page.getByRole('link', { name: /^Clôturer / })
+  if (status.closableMonth) {
+    await expect(link).toHaveText(`Clôturer ${status.closableMonth.name}`)
+    await expect(link).toHaveAttribute('href', '/compte-rendu')
+  }
+  else {
+    await expect(link).toHaveCount(0)
+  }
+})

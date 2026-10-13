@@ -184,4 +184,20 @@ describe('monthContributions', () => {
   it('returns nothing when there is neither a contribution nor a variance', () => {
     expect(monthContributions({ entries: [], poches: [], salaryVariance: 0 })).toEqual([])
   })
+
+  it('lists closure leftovers as their own row, apart from the manual versement', () => {
+    const rows = monthContributions({
+      entries: [
+        { savingsGoalId: 'a', amount: 345, source: 'manual' },
+        { savingsGoalId: 'a', amount: 26, source: 'closure' },
+        { savingsGoalId: 'b', amount: 10, source: 'closure' },
+      ],
+      poches: [],
+      salaryVariance: 0,
+    })
+    expect(rows).toEqual([
+      { kind: 'contribution', label: 'Versement du mois', detail: 'réparti sur les poches', amount: 345 },
+      { kind: 'closure', label: 'Reliquats de clôture', detail: "reliquats d'enveloppes du mois", amount: 36 },
+    ])
+  })
 })
