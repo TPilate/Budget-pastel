@@ -5,7 +5,7 @@
 -- caller is the signed-in household through the Data API, never the table owner.
 --
 -- The server computes the plan (server/utils/domain/closure.ts); this function re-checks
--- the two ordering rules the server already checked, because a second tab or a double
+-- the three ordering rules the server already checked, because a second tab or a double
 -- click can arrive after the first closure has committed.
 
 CREATE OR REPLACE FUNCTION public.close_month(payload jsonb)
@@ -23,6 +23,12 @@ DECLARE
 BEGIN
   IF EXISTS (SELECT 1 FROM month_closures WHERE year = p_year AND month = p_month AND status = 'closed') THEN
     RAISE EXCEPTION 'MONTH_ALREADY_CLOSED';
+  END IF;
+
+  -- Closing a month writes the next month's allocations: it must never run behind a month
+  -- that is already closed, or it would rewrite that month's figures.
+  IF EXISTS (SELECT 1 FROM month_closures WHERE status = 'closed' AND (year, month) > (p_year, p_month)) THEN
+    RAISE EXCEPTION 'LATER_MONTH_CLOSED';
   END IF;
 
   IF EXISTS (

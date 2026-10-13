@@ -126,6 +126,9 @@ export async function closeMonth(event: H3Event, input: ClosureInput, now: Date)
     if (error.message.includes('PREVIOUS_MONTH_OPEN')) {
       throw userError(409, 'Previous month open', 'Le mois précédent doit être clôturé avant celui-ci.')
     }
+    if (error.message.includes('LATER_MONTH_CLOSED')) {
+      throw userError(409, 'Later month closed', 'Un mois plus récent est déjà clôturé.')
+    }
     console.error(`[closureService] close_month failed: ${error.message}`)
     throw createError({ statusCode: 500, statusMessage: 'Month closure failed' })
   }

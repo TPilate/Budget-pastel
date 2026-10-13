@@ -62,6 +62,17 @@ describe('parisYearMonth and closureWindow', () => {
     expect(result).toEqual({ closable: { year: 2026, month: 9 }, nextOpening: null })
   })
 
+  it('never walks back behind the latest closed month, even when older data appears', () => {
+    // A movement backdated into August after September closed must not make August
+    // closable: closing it would rewrite September's allocations.
+    const result = closureWindow({
+      firstDataMonth: { year: 2026, month: 8 },
+      closedMonths: [SEPT],
+      now: new Date('2026-11-15T10:00:00Z'),
+    })
+    expect(result).toEqual({ closable: { year: 2026, month: 10 }, nextOpening: null })
+  })
+
   it('reports when the next closure opens once everything is caught up', () => {
     const result = closureWindow({
       firstDataMonth: SEPT,

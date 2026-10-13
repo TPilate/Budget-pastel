@@ -116,6 +116,7 @@ describe('closureService', () => {
     [{ message: 'MONTH_ALREADY_CLOSED', code: 'P0001' }, 409],
     [{ message: 'duplicate key value violates unique constraint', code: '23505' }, 409],
     [{ message: 'PREVIOUS_MONTH_OPEN', code: 'P0001' }, 409],
+    [{ message: 'LATER_MONTH_CLOSED', code: 'P0001' }, 409],
     [{ message: 'something else', code: 'XX000' }, 500],
   ])('maps a database refusal %o to %i', async (error, status) => {
     // A double click or a second tab reaches the database after the first closure won.
@@ -123,5 +124,12 @@ describe('closureService', () => {
     await expect(closeMonth(event, {
       year: 2026, month: 9, decisions: [{ envelopeId: 'sorties', destination: 'carry_over' }],
     }, NOW)).rejects.toMatchObject({ statusCode: status })
+  })
+
+  it('explains in French that a later month is already closed', async () => {
+    rpc.result = { data: null, error: { message: 'LATER_MONTH_CLOSED', code: 'P0001' } }
+    await expect(closeMonth(event, {
+      year: 2026, month: 9, decisions: [{ envelopeId: 'sorties', destination: 'carry_over' }],
+    }, NOW)).rejects.toMatchObject({ statusCode: 409, data: { message: 'Un mois plus récent est déjà clôturé.' } })
   })
 })

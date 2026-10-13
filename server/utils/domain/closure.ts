@@ -50,8 +50,15 @@ export function closureWindow(input: {
   const closed = new Set(input.closedMonths.map(key))
 
   // Months close strictly in order: walk forward from the first month with data, past
-  // every month already closed. The first one found is the only candidate.
+  // every month already closed. The first one found is the only candidate. The walk never
+  // starts behind the latest closed month: a month before it that gained data later (a
+  // backdated movement) stays frozen, since closing it would rewrite the closed month's
+  // allocations.
+  const latestClosed = [...input.closedMonths].sort(compareYearMonth).at(-1) ?? null
   let candidate = input.firstDataMonth
+  if (candidate && latestClosed && compareYearMonth(candidate, latestClosed) <= 0) {
+    candidate = nextYearMonth(latestClosed)
+  }
   if (candidate) {
     while (closed.has(key(candidate))) candidate = nextYearMonth(candidate)
   }
