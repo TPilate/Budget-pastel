@@ -221,14 +221,15 @@ deliberately, not an oversight.
 
 Vercel settings to check (household checklist, not code):
 
-- [ ] Enable **Fluid compute** (*Vercel project -> Settings -> Functions*).
+- [x] **Fluid compute** (*Vercel project -> Settings -> Functions*): already on before this
+  milestone, so the 2.8 s cold start and the 0.8-1 s spikes were measured with it enabled.
 - [x] Compare the Supabase project region (*Supabase -> Project Settings -> General*) with
   `vercel.json`'s `"regions": ["fra1"]`. Checked 2026-10-13: Supabase is Central EU (Frankfurt),
   the same city as `fra1`, so there is no cross-region hop to remove.
 - [ ] Only then consider a keep-warm ping (spec section 6.3).
 
 Navigation time, click to data on screen (local dev measures are from `perf.spec.ts`, two runs;
-"before" is from the spec section 2; production "after" measured 2026-10-13 right after deploy, warm, over three runs of `perf.spec.ts`. The occasional ~0.8-1 s spikes are Vercel instances spinning up, which Fluid compute reduces):
+"before" is from the spec section 2; production "after" measured 2026-10-13 right after deploy, warm, over three runs of `perf.spec.ts`. The occasional ~0.8-1 s spikes are Vercel instances spinning up; Fluid compute was already on):
 
 | Page | Before (production) | After, local dev | After, production |
 |---|---|---|---|
@@ -240,7 +241,7 @@ Navigation time, click to data on screen (local dev measures are from `perf.spec
 | Envies | n/a | 235-256 ms, 1 call | 254 ms, pic à 811 ms, 1 appel |
 | Compte rendu | n/a | 475-548 ms, 1 call | 215 ms, 1 appel |
 | Tableau de bord | n/a | 242 ms, 1 call | 263 ms, 1 appel |
-| Cold TTFB | 2.8 s | n/a | non mesuré : demande une pause de plusieurs minutes ; à revérifier après activation de Fluid compute |
+| Cold TTFB | 2.8 s | n/a | non mesuré : demande une pause de plusieurs minutes (Fluid compute déjà actif) |
 
 Local dev numbers are not comparable to production (no network, dev server). The production
 column is filled by running the PERF_BASE_URL command in section 2 after deployment.
