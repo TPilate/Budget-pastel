@@ -8,10 +8,14 @@ import { STORAGE_STATE } from './tests/e2e/storage-state'
 // testing nothing at all, which would mask every real failure in it.
 dotenv.config()
 
+// PERF_BASE_URL points the run at a deployed site instead of the local dev server.
+// Production runs are read-only and must be limited to tests/e2e/perf.spec.ts.
+const baseURL = process.env.PERF_BASE_URL ?? 'http://localhost:3000'
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
-  webServer: {
+  webServer: process.env.PERF_BASE_URL ? undefined : {
     command: 'npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
@@ -25,7 +29,7 @@ export default defineConfig({
     },
   },
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL,
   },
   // Supabase rate-limits password grants: six concurrent logins returns 429 for four of
   // them, and a full run doing one grant per test tripped the limit even at two workers,

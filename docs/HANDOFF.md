@@ -44,6 +44,8 @@ npm run dev                  # dev server
 npm run build                # production build (run this before believing anything works)
 npm test                     # vitest — currently 279 passing across 37 files
 npm run test:e2e             # playwright — 26 passing before the Compte rendu milestone; the new `compte-rendu.spec.ts` and dashboard test have never run
+npx playwright test tests/e2e/perf.spec.ts   # navigation performance (read-only, safe on the live DB)
+PERF_BASE_URL=https://budget-pastel.vercel.app npx playwright test tests/e2e/perf.spec.ts   # same, against production (read-only; run NO other spec there)
 npm run db:generate          # drizzle-kit generate (migrations)
 npm run db:migrate           # drizzle-kit migrate
 npm run seed:user            # one-off, creates the household user
@@ -122,8 +124,21 @@ an error. `connect_timeout` and `statement_timeout` do not cover waiting for a s
 to 5 slots, and `SidebarCeilingsWidget` costs another 5 on every page render, so the margin
 is thin. New routes should follow `/api/epargne` and stay entirely on the Supabase Data API.
 
-**Hydration discards early input.** The pages use top-level `await useFetch`, so they render
-behind `<Suspense>` and Vue patches inputs to match empty refs when hydration lands,
+**One call per page.** Every page loads its data with a single request: a new page gets an
+`/api/pages/*` endpoint composed in `server/utils/pageData.ts`, reads it with `useLazyFetch` and
+shows `<PageSkeleton />` (`role="status"`) while it is in flight. Never add a top-level
+`await useFetch` — it blocks the navigation until the data lands, which is what made the app
+feel slow. The sidebar ceilings load once under `/api/envelopes/ceilings`. Envelope ledgers are
+now read through the Data API (`listBudgetEnvelopeLedgers(event, …)`, note the `event`
+parameter). `tests/e2e/perf.spec.ts` asserts one call per navigation; keep it green.
+
+**Session check once per visit.** `app/utils/sessionGate.ts` remembers that the session was
+verified, so navigation no longer calls `/api/health` each time. Logout resets the flag, and
+`app/plugins/api-unauthorized.client.ts` resets it on any same-origin `/api/*` 401 (except
+`/api/health`) and sends the user to `/login`, whose middleware re-checks and bounces a
+still-valid session back to `/`.
+
+**Hydration discards early input.** Pages render before their data lands (`useLazyFetch`), and hydration patches inputs to match empty refs when hydration lands,
 throwing away anything typed before then. Every form therefore carries an `isHydrated` guard
 (set in `onMounted`) plus `isSubmitting`. The login page lost three debugging rounds to this
 before the cause was found. E2E specs wait for `#__nuxt.__vue_app__` before interacting, and
@@ -200,6 +215,32 @@ Also unbuilt and, unlike the above, **undesigned**: livrets. `livrets`,
 endpoints and no UI. The parent spec's milestone 4 says "+ Livrets", but the Figma file has
 no livret screen at all, so building one means inventing it. That is a decision to make
 deliberately, not an oversight.
+
+### Navigation performance
+
+Vercel settings to check (household checklist, not code):
+
+- [ ] Enable **Fluid compute** (*Vercel project -> Settings -> Functions*).
+- [ ] Compare the Supabase project region (*Supabase -> Project Settings -> General*) with
+  `vercel.json`'s `"regions": ["fra1"]`; align them if they differ.
+- [ ] Only then consider a keep-warm ping (spec section 6.3).
+
+Navigation time, click to data on screen (local dev measures are from `perf.spec.ts`, two runs;
+"before" is from the spec section 2):
+
+| Page | Before (production) | After, local dev | After, production |
+|---|---|---|---|
+| Mouvements | about 420 ms, 3 hops | 258-296 ms, 1 call | a mesurer apres deploiement |
+| Parametres | 450-630 ms, 5 hops | 227-257 ms, 1 call | a mesurer apres deploiement |
+| Enveloppes | n/a | 510-547 ms, 1 call | a mesurer apres deploiement |
+| Epargne | n/a | 213-267 ms, 1 call | a mesurer apres deploiement |
+| Comptes | n/a | 435-448 ms, 1 call | a mesurer apres deploiement |
+| Envies | n/a | 235-256 ms, 1 call | a mesurer apres deploiement |
+| Compte rendu | n/a | 475-548 ms, 1 call | a mesurer apres deploiement |
+| Cold TTFB | 2.8 s | n/a | a mesurer apres deploiement |
+
+Local dev numbers are not comparable to production (no network, dev server). The production
+column is filled by running the PERF_BASE_URL command in section 2 after deployment.
 
 ## 7. Open follow-ups
 
