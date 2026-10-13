@@ -63,8 +63,8 @@ async function submit() {
       },
     })
     emit('saved')
-  } catch {
-    errorMessage.value = "Impossible d'enregistrer l'entrée. Vérifiez les champs et réessayez."
+  } catch (error) {
+    errorMessage.value = apiErrorMessage(error) ?? "Impossible d'enregistrer l'entrée. Vérifiez les champs et réessayez."
   } finally {
     isSubmitting.value = false
   }

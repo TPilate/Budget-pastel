@@ -111,7 +111,7 @@ async function save() {
         >
       </label>
       <p class="text-[10.5px] font-medium text-ink-faint">
-        Utilisé pour les mois sans plafond spécifique. Ne modifie pas un mois déjà clôturé.
+        Utilisé pour le mois en cours et les suivants. Ne modifie pas un mois déjà clôturé.
       </p>
     </div>
 

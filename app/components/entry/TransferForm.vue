@@ -52,8 +52,8 @@ async function submit() {
       },
     })
     emit('saved')
-  } catch {
-    errorMessage.value = 'Impossible de valider le transfert. Vérifiez les champs et réessayez.'
+  } catch (error) {
+    errorMessage.value = apiErrorMessage(error) ?? 'Impossible de valider le transfert. Vérifiez les champs et réessayez.'
   } finally {
     isSubmitting.value = false
   }

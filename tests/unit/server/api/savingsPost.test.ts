@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest'
 import { savingsEntries } from '../../../../drizzle/schema'
+vi.mock('../../../../server/utils/monthLock', () => ({ assertMonthOpen: vi.fn() }))
 
 // Mirrors the mocking pattern established in tests/unit/server/utils/referenceCrud.test.ts:
 // `eq`/`and` are replaced with plain descriptor objects so the fake `db` below can evaluate

@@ -65,8 +65,8 @@ async function submit() {
       },
     })
     emit('saved')
-  } catch {
-    errorMessage.value = "Impossible d'enregistrer la sortie. Vérifiez les champs et réessayez."
+  } catch (error) {
+    errorMessage.value = apiErrorMessage(error) ?? "Impossible d'enregistrer la sortie. Vérifiez les champs et réessayez."
   } finally {
     isSubmitting.value = false
   }

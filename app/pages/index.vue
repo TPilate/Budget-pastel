@@ -124,8 +124,8 @@ async function recordSavings() {
     savingsAmount.value = ''
     await refresh()
   }
-  catch {
-    savingsError.value = "Impossible d'enregistrer ce montant."
+  catch (error) {
+    savingsError.value = apiErrorMessage(error) ?? "Impossible d'enregistrer ce montant."
   }
   finally {
     isSavingSavings.value = false

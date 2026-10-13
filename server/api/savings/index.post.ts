@@ -1,6 +1,7 @@
 import { and, eq } from 'drizzle-orm'
 import { requireUser } from '../../utils/auth'
 import { validateBody } from '../../utils/validateBody'
+import { assertMonthOpen } from '../../utils/monthLock'
 import { db, withDbTimeout } from '../../utils/db'
 import { savingsEntries } from '../../../drizzle/schema'
 import { savingsInputSchema } from '../../../shared/schemas/savings'
@@ -8,6 +9,8 @@ import { savingsInputSchema } from '../../../shared/schemas/savings'
 export default defineEventHandler(async (event) => {
   await requireUser(event)
   const input = await validateBody(event, savingsInputSchema)
+  // A closed month is frozen: its report and leftovers must stay true.
+  await assertMonthOpen(event, input.year, input.month)
 
   // savings_entries has no unique index, so uniqueness is enforced here: look for the
   // goal's existing figure for this month and update it, inserting only when absent.
