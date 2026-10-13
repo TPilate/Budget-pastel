@@ -46,7 +46,7 @@ async function handleLogout() {
 
       <button type="button" class="flex items-center gap-2 rounded-[10px] px-2 py-2 text-left" @click="handleLogout">
         <span class="flex size-7 items-center justify-center rounded-full bg-violet-bar text-[11px] font-bold text-white">M</span>
-        <span class="text-[12.5px] font-bold text-ink">Marion</span>
+        <span class="text-[12.5px] font-bold text-ink">Laura</span>
       </button>
     </div>
   </aside>
