@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { renderReportPdf } from '../../../../server/utils/reportPdf'
+import { renderReportPdf } from '../../../../server/pdf/reportPdf'
 import { septemberSnapshot } from '../../fixtures/reportSnapshot'
 
 const fontDir = path.join(process.cwd(), 'server/assets/fonts')

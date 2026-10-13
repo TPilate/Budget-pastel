@@ -77,7 +77,7 @@ Spec `docs/superpowers/specs/2026-10-13-compte-rendu-design.md`, plan
 
 - `server/utils/domain/closure.ts` and `server/utils/domain/reportSnapshot.ts` — pure logic
 - `server/utils/closureQuery.ts` (read side) and `server/utils/closureService.ts` (closing)
-- `server/utils/reportLayout.ts` and `server/utils/reportPdf.ts` — the PDF report
+- `server/utils/reportLayout.ts` and `server/pdf/reportPdf.ts` — the PDF report
 - `drizzle/migrations/0006_close_month.sql` — the `close_month` function (and `0005_warm_hellcat.sql`)
 - `app/pages/compte-rendu.vue`
 

@@ -1,8 +1,6 @@
 import { createError } from 'h3'
 import { requireUser } from '../../../utils/auth'
 import { fetchReportSnapshot } from '../../../utils/closureQuery'
-import { loadReportFonts } from '../../../utils/pdfFonts'
-import { renderReportPdf } from '../../../utils/reportPdf'
 import { reportParamsSchema } from '../../../../shared/schemas/closure'
 
 export default defineEventHandler(async (event) => {
@@ -25,6 +23,12 @@ export default defineEventHandler(async (event) => {
 
   let pdf: Buffer
   try {
+    // Loaded on demand: pdfkit and fontkit are heavy, and Nitro bundles every route into
+    // one function, so a static import made every route pay for them at cold start.
+    const [{ loadReportFonts }, { renderReportPdf }] = await Promise.all([
+      import('../../../pdf/pdfFonts'),
+      import('../../../pdf/reportPdf'),
+    ])
     pdf = await renderReportPdf(snapshot, await loadReportFonts())
   }
   catch (error) {

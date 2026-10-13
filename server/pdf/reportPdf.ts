@@ -1,8 +1,8 @@
 import { createPdfDocument, pdfToBuffer } from './pdfDocument'
 import type { ReportFonts } from './pdfDocument'
-import { buildReportLayout } from './reportLayout'
-import type { LayoutBlock } from './reportLayout'
-import type { ReportSnapshotV1 } from './domain/reportSnapshot'
+import { buildReportLayout } from '../utils/reportLayout'
+import type { LayoutBlock } from '../utils/reportLayout'
+import type { ReportSnapshotV1 } from '../utils/domain/reportSnapshot'
 
 // The app's tokens (app/assets/css/main.css), with the translucent inks flattened onto
 // white because PDF text has no alpha blending worth relying on.
