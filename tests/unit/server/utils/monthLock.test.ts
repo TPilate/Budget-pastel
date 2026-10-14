@@ -43,7 +43,7 @@ vi.mock('../../../../server/utils/supabase', () => ({
 }))
 vi.mock('../../../../server/utils/db', () => { throw new Error('monthLock must not touch the connection pool') })
 
-import { assertMonthOpen } from '../../../../server/utils/monthLock'
+import { assertMonthOpen, fetchLatestClosedMonth } from '../../../../server/utils/monthLock'
 
 describe('assertMonthOpen', () => {
   beforeEach(() => {
@@ -88,5 +88,23 @@ describe('assertMonthOpen', () => {
   it('fails closed with a 500 when the check itself fails', async () => {
     state.error = { message: 'boom' }
     await expect(assertMonthOpen({ context: {} } as any, 2026, 9)).rejects.toMatchObject({ statusCode: 500 })
+  })
+})
+
+describe('fetchLatestClosedMonth', () => {
+  beforeEach(() => { state.error = null })
+
+  it('returns null when no month was ever closed', async () => {
+    state.closures = []
+    expect(await fetchLatestClosedMonth({ context: {} } as any)).toBeNull()
+  })
+
+  it('returns the latest closed month only', async () => {
+    state.closures = [
+      { year: 2026, month: 8, status: 'closed' },
+      { year: 2026, month: 9, status: 'closed' },
+      { year: 2026, month: 10, status: 'open' },
+    ]
+    expect(await fetchLatestClosedMonth({ context: {} } as any)).toEqual({ year: 2026, month: 9 })
   })
 })

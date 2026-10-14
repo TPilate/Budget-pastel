@@ -27,3 +27,12 @@ describe('reference patch schemas coerce archivedAt to a Date', () => {
     expect(result.archivedAt).toBeInstanceOf(Date)
   })
 })
+
+describe('incomeTypePatchSchema salary fields', () => {
+  it('accepts the flag and a text amount from the Paramètres input', () => {
+    expect(incomeTypePatchSchema.parse({ isSalary: true, expectedAmount: '2100.5' })).toEqual({ isSalary: true, expectedAmount: 2100.5 })
+  })
+  it('keeps null as null rather than coercing it to 0', () => {
+    expect(incomeTypePatchSchema.parse({ expectedAmount: null })).toEqual({ expectedAmount: null })
+  })
+})

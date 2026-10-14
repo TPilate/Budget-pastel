@@ -24,6 +24,11 @@ export function compareYearMonth(a: YearMonth, b: YearMonth): number {
   return (a.year - b.year) * 12 + (a.month - b.month)
 }
 
+/** Every month up to and including the latest closed one is frozen. */
+export function isMonthOpen(month: YearMonth, latestClosed: YearMonth | null): boolean {
+  return latestClosed === null || compareYearMonth(month, latestClosed) > 0
+}
+
 export function nextYearMonth({ year, month }: YearMonth): YearMonth {
   return month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 }
 }

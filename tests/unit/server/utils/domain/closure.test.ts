@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  toCents, monthLabel, nextYearMonth, parisYearMonth, closureWindow,
+  toCents, monthLabel, nextYearMonth, parisYearMonth, closureWindow, isMonthOpen,
   computeLeftovers, planClosure, ClosurePlanError, defaultSavingsGoalId,
 } from '../../../../../server/utils/domain/closure'
 import type { MonthData, LeftoverRow } from '../../../../../server/utils/domain/closure'
@@ -218,5 +218,17 @@ describe('defaultSavingsGoalId', () => {
   it('falls back to the first poche, then to null', () => {
     expect(defaultSavingsGoalId([{ id: 'a', receivesSalaryVariance: false }])).toBe('a')
     expect(defaultSavingsGoalId([])).toBeNull()
+  })
+})
+
+describe('isMonthOpen', () => {
+  it('treats every month as open when nothing was closed', () => {
+    expect(isMonthOpen({ year: 2020, month: 1 }, null)).toBe(true)
+  })
+  it('freezes the latest closed month and everything before it', () => {
+    const closed = { year: 2026, month: 9 }
+    expect(isMonthOpen({ year: 2026, month: 9 }, closed)).toBe(false)
+    expect(isMonthOpen({ year: 2026, month: 3 }, closed)).toBe(false)
+    expect(isMonthOpen({ year: 2026, month: 10 }, closed)).toBe(true)
   })
 })

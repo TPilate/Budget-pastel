@@ -1,0 +1,18 @@
+import type { IncomeEntryInput } from '../../shared/schemas/incomeEntry'
+
+// The row each create and edit endpoint writes, built in one place so POST and PATCH can
+// never derive months or amounts differently.
+
+export function incomeRowValues(input: IncomeEntryInput, expectedAmount: string | null) {
+  return {
+    incomeTypeId: input.incomeTypeId,
+    label: input.label,
+    amount: String(input.amount),
+    dateReceived: input.dateReceived,
+    monthAssigned: input.monthAssigned,
+    yearAssigned: input.yearAssigned,
+    detailsText: input.detailsText ?? null,
+    targetEnvelopeId: input.targetEnvelopeId ?? null,
+    expectedAmount,
+  }
+}
