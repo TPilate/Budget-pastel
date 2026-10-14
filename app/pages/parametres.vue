@@ -6,7 +6,7 @@ interface ReferenceItem {
 }
 
 const { data: page, error, refresh } = useLazyFetch<{
-  categories: ReferenceItem[], envelopes: ReferenceItem[], incomeTypes: ReferenceItem[], accounts: ReferenceItem[]
+  categories: ReferenceItem[], envelopes: ReferenceItem[], incomeTypes: (ReferenceItem & { isSalary: boolean, expectedAmount: number | string | null })[], accounts: ReferenceItem[]
 }>('/api/pages/parametres', { key: 'page-parametres' })
 const categories = computed(() => page.value?.categories ?? [])
 const envelopes = computed(() => page.value?.envelopes ?? [])
@@ -91,6 +91,21 @@ async function addIncomeType() {
   } catch {
     errorMessage.value = 'Une erreur est survenue. Réessayez.'
   }
+}
+
+async function saveSalary(id: string, body: { isSalary?: boolean, expectedAmount?: string | null }) {
+  errorMessage.value = ''
+  try {
+    await $fetch(`/api/income-types/${id}`, { method: 'PATCH', body })
+    await loadAll()
+  } catch {
+    errorMessage.value = 'Une erreur est survenue. Réessayez.'
+  }
+}
+
+function amountFromInput(event: Event): string | null {
+  // Comma normalised like every other amount field here; blank clears the amount.
+  return (event.target as HTMLInputElement).value.trim().replace(',', '.') || null
 }
 
 async function addAccount() {
@@ -185,9 +200,26 @@ async function archive(endpoint: string, id: string) {
           <span
             v-for="incomeType in incomeTypes"
             :key="incomeType.id"
-            class="flex items-center gap-1 rounded-full bg-app-bg px-3 py-2 text-[11.5px] font-semibold text-ink"
+            class="flex items-center gap-2 rounded-full bg-app-bg px-3 py-2 text-[11.5px] font-semibold text-ink"
           >
             {{ incomeType.emoji }} {{ incomeType.name }}
+            <label class="flex items-center gap-1 text-ink-muted">
+              <input
+                type="checkbox"
+                :checked="incomeType.isSalary"
+                @change="saveSalary(incomeType.id, { isSalary: ($event.target as HTMLInputElement).checked })"
+              >
+              C'est un salaire
+            </label>
+            <input
+              v-if="incomeType.isSalary"
+              :value="incomeType.expectedAmount ?? ''"
+              :aria-label="`Montant prévu — ${incomeType.name}`"
+              placeholder="Montant prévu"
+              inputmode="decimal"
+              class="w-24 rounded-lg border border-divider bg-white px-2 py-0.5 text-right"
+              @change="saveSalary(incomeType.id, { expectedAmount: amountFromInput($event) })"
+            >
             <button type="button" class="text-ink-faint" @click="archive('/api/income-types', incomeType.id)">×</button>
           </span>
         </div>
