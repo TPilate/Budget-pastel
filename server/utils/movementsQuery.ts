@@ -120,7 +120,7 @@ async function fetchFeed(
       financedBy: row.financed_by,
       envelopeName: envelope?.name ?? null,
       envelopeEmoji: envelope?.emoji ?? null,
-      // category_id is NOT NULL, so the embed is always present.
+      // category_id is null for an expense taken from an envelope; the feed labels it by envelope.
       categoryName: category?.name ?? '',
       categoryEmoji: category?.emoji ?? '',
       categoryIsFixed: Boolean(category && (category as any).is_fixed),

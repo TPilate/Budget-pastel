@@ -24,7 +24,7 @@ export function computeAccountTotals(input: {
 
 export function summariseFixedCharges(input: {
   fixedCategories: { id: string, name: string, defaultTarget: number | null }[]
-  expensesThisMonth: { categoryId: string }[]
+  expensesThisMonth: { categoryId: string | null }[]
 }): {
   lines: { id: string, name: string, amount: number, isSettled: boolean }[]
   total: number

@@ -26,9 +26,19 @@ describe('expenseEntryInputSchema', () => {
     expect(() => expenseEntryInputSchema.parse({ ...validInput, amount: 0 })).toThrow()
   })
 
-  it('rejects a missing categoryId', () => {
+  it('accepts an expense with an envelope and no category', () => {
     const { categoryId, ...rest } = validInput
-    expect(() => expenseEntryInputSchema.parse(rest)).toThrow()
+    expect(() => expenseEntryInputSchema.parse({ ...rest, envelopeId: '33333333-3333-3333-3333-333333333333' })).not.toThrow()
+  })
+
+  it('accepts a null category when an envelope is set', () => {
+    expect(() => expenseEntryInputSchema.parse({ ...validInput, categoryId: null, envelopeId: '33333333-3333-3333-3333-333333333333' })).not.toThrow()
+  })
+
+  it('rejects an expense with neither a category nor an envelope, in French', () => {
+    const result = expenseEntryInputSchema.safeParse({ ...validInput, categoryId: null, envelopeId: null })
+    expect(result.success).toBe(false)
+    expect(result.error!.issues[0].message).toBe('Choisissez une catégorie ou une enveloppe.')
   })
 
   it('rejects an invalid financedBy value', () => {

@@ -1,3 +1,4 @@
+import type { ExpenseEntryInput } from '../../shared/schemas/expenseEntry'
 import type { IncomeEntryInput } from '../../shared/schemas/incomeEntry'
 
 // The row each create and edit endpoint writes, built in one place so POST and PATCH can
@@ -14,5 +15,20 @@ export function incomeRowValues(input: IncomeEntryInput, expectedAmount: string 
     detailsText: input.detailsText ?? null,
     targetEnvelopeId: input.targetEnvelopeId ?? null,
     expectedAmount,
+  }
+}
+
+export function expenseRowValues(input: ExpenseEntryInput) {
+  const [yearAssigned, monthAssigned] = input.date.split('-').map(Number)
+  return {
+    date: input.date,
+    categoryId: input.categoryId ?? null,
+    label: input.label,
+    amount: String(input.amount),
+    accountId: input.accountId ?? null,
+    envelopeId: input.envelopeId ?? null,
+    financedBy: input.financedBy,
+    monthAssigned,
+    yearAssigned,
   }
 }

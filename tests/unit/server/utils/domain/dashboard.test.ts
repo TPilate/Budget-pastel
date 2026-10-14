@@ -207,3 +207,10 @@ describe('daysRemainingInMonth', () => {
     expect(daysRemainingInMonth(new Date(2026, 1, 28))).toBeGreaterThanOrEqual(1)
   })
 })
+
+describe('partitionExpenses with an uncategorised envelope expense', () => {
+  it('counts it in the envelope slice', () => {
+    expect(partitionExpenses([{ amount: 30, envelopeId: 'env', categoryIsFixed: false, financedBy: 'budget' }]))
+      .toEqual({ fixed: 0, envelope: 30, variable: 0 })
+  })
+})

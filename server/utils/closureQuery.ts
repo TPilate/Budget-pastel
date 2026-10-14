@@ -75,7 +75,7 @@ export async function fetchMonthData(event: H3Event, { year, month }: YearMonth)
       .select('envelope_id,base_ceiling,carried_over_amount,overspend_deduction')
       .eq('year', year).eq('month', month).abortSignal(signal),
     supabase.from('expense_entries')
-      .select('date,label,amount,envelope_id,financed_by,categories(name,emoji,fifty_thirty_twenty_bucket)')
+      .select('date,label,amount,envelope_id,financed_by,categories(name,emoji,fifty_thirty_twenty_bucket),envelopes(name,emoji)')
       .eq('year_assigned', year).eq('month_assigned', month).order('date').abortSignal(signal),
     supabase.from('income_entries')
       .select('date_received,label,amount,expected_amount,target_envelope_id,income_types(name,emoji)')
@@ -120,14 +120,17 @@ export async function fetchMonthData(event: H3Event, { year, month }: YearMonth)
     })),
     expenses: (expensesRes.data ?? []).map((row: any) => {
       const category = unwrap<any>(row.categories)
+      // An expense taken from an envelope may have no category; the report groups it
+      // under its envelope instead.
+      const envelope = unwrap<any>(row.envelopes)
       return {
         date: row.date,
         label: row.label,
         amount: Number(row.amount),
         envelopeId: row.envelope_id ?? null,
         financedBy: row.financed_by,
-        categoryName: category?.name ?? '',
-        categoryEmoji: category?.emoji ?? '',
+        categoryName: category?.name ?? envelope?.name ?? '',
+        categoryEmoji: category?.emoji ?? envelope?.emoji ?? '',
         categoryBucket: category?.fifty_thirty_twenty_bucket ?? null,
       }
     }),

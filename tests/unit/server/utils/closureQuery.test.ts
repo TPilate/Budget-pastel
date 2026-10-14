@@ -89,6 +89,18 @@ describe('closureQuery', () => {
     expect(mocks.calls.monthly_envelope_allocations).toContainEqual(['eq', 'month', 9])
   })
 
+  it('names an uncategorised envelope expense after its envelope', async () => {
+    mocks.responseByTable.expense_entries = { data: [
+      { date: '2026-09-14', label: 'Plein', amount: '40.00', envelope_id: 'e1', financed_by: 'budget', categories: null, envelopes: { name: 'Courses', emoji: '🛒' } },
+    ], error: null }
+
+    const data = await fetchMonthData(event, { year: 2026, month: 9 })
+
+    expect(data.expenses[0]).toMatchObject({ categoryName: 'Courses', categoryEmoji: '🛒', categoryBucket: null })
+    const select = mocks.calls.expense_entries.find(([name]) => name === 'select')!
+    expect(String(select[1])).toContain('envelopes(name,emoji)')
+  })
+
   it('throws a 500 naming the table when a request fails', async () => {
     mocks.responseByTable.transfers = { data: null, error: { message: 'boom' } }
     await expect(fetchMonthData(event, { year: 2026, month: 9 })).rejects.toMatchObject({
