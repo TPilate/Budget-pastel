@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => {
     expense_entries: { data: [], error: null },
     income_entries: { data: [], error: null },
     transfers: { data: [], error: null },
+    savings_entries: { data: [], error: null },
   }
 
   const selectCalls: Record<string, string> = {}
@@ -60,6 +61,9 @@ vi.mock('../../../../server/utils/supabase', () => ({
   createSupabaseServerClient: () => mocks.makeClient(),
 }))
 
+const closure = vi.hoisted(() => ({ latest: null as { year: number, month: number } | null }))
+vi.mock('../../../../server/utils/monthLock', () => ({ fetchLatestClosedMonth: vi.fn(async () => closure.latest) }))
+
 import { fetchMovements, fetchEnvelopeJournal } from '../../../../server/utils/movementsQuery'
 
 function fakeEvent() {
@@ -70,7 +74,10 @@ function reset() {
   mocks.responseByTable.expense_entries = { data: [], error: null }
   mocks.responseByTable.income_entries = { data: [], error: null }
   mocks.responseByTable.transfers = { data: [], error: null }
+  mocks.responseByTable.savings_entries = { data: [], error: null }
+  closure.latest = null
   mocks.abortSignals.length = 0
+  for (const key of Object.keys(mocks.selectCalls)) delete mocks.selectCalls[key]
   for (const key of Object.keys(mocks.eqCalls)) delete mocks.eqCalls[key]
   for (const key of Object.keys(mocks.orCalls)) delete mocks.orCalls[key]
 }
@@ -196,7 +203,7 @@ describe('fetchMovements (Supabase Data API)', () => {
 
     // Node's fetch has no default timeout. Without a signal on all three requests,
     // one stalled response reproduces the original infinite-load symptom.
-    expect(mocks.abortSignals).toHaveLength(3)
+    expect(mocks.abortSignals).toHaveLength(4)
     for (const signal of mocks.abortSignals) {
       expect(signal).toBeInstanceOf(AbortSignal)
       expect(signal.aborted).toBe(false)
@@ -279,5 +286,40 @@ describe('fetchEnvelopeJournal (Supabase Data API)', () => {
 
     await expect(fetchEnvelopeJournal(fakeEvent(), 'env-7', 2026, 9))
       .rejects.toThrow(/income_entries/)
+  })
+})
+
+describe('fetchMovements — savings and editing', () => {
+  beforeEach(reset)
+
+  it('includes the month savings versements, with their form fields', async () => {
+    mocks.responseByTable.savings_entries = {
+      data: [{ id: 's1', date: '2026-09-05', year: 2026, month: 9, amount: 100, source: 'manual', savings_goal_id: 'g1', savings_goals: { name: 'Voyage' } }],
+      error: null,
+    }
+    const feed = await fetchMovements(fakeEvent(), 2026, 9)
+    expect(feed.find((m) => m.id === 's1')).toMatchObject({ type: 'savings', amount: -100, fields: { savingsGoalId: 'g1', date: '2026-09-05', amount: 100 } })
+    expect(mocks.eqCalls.savings_entries).toEqual([['year', 2026], ['month', 9]])
+  })
+
+  it('carries expense ids for the edit form', async () => {
+    mocks.responseByTable.expense_entries = {
+      data: [{ id: 'x1', date: '2026-09-19', label: 'Courses', amount: 62.4, financed_by: 'budget', category_id: 'c1', envelope_id: null, account_id: 'a1', categories: { name: 'Alimentation', emoji: '🍎', is_fixed: false }, envelopes: null, accounts: { name: 'Compte courant' } }],
+      error: null,
+    }
+    const [movement] = await fetchMovements(fakeEvent(), 2026, 9)
+    expect(movement.fields).toMatchObject({ categoryId: 'c1', envelopeId: null, accountId: 'a1' })
+  })
+
+  it('marks the month as not editable once it is closed', async () => {
+    closure.latest = { year: 2026, month: 9 }
+    mocks.responseByTable.transfers = { data: [{ id: 't1', date: '2026-09-03', reason: 'r', amount: 10, from_envelope_id: 'a', to_envelope_id: 'b', from_envelope: { name: 'A' }, to_envelope: { name: 'B' } }], error: null }
+    const [movement] = await fetchMovements(fakeEvent(), 2026, 9)
+    expect(movement.editable).toBe(false)
+  })
+
+  it('leaves savings out of an envelope journal', async () => {
+    await fetchEnvelopeJournal(fakeEvent(), 'env-1', 2026, 9)
+    expect(mocks.selectCalls.savings_entries).toBeUndefined()
   })
 })

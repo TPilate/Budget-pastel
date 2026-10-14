@@ -3,14 +3,16 @@ import { createError } from 'h3'
 import { createSupabaseServerClient } from './supabase'
 import { buildMovementsFeed } from './domain/movementsFeed'
 import type { Movement } from './domain/movementsFeed'
+import { fetchLatestClosedMonth } from './monthLock'
+import { isMonthOpen } from './domain/closure'
 
 // This module deliberately does NOT import ./db. It reads through Supabase's Data
 // API (PostgREST) over stateless HTTPS, so there is no connection pool to exhaust
 // and no untimed pool-wait queue to hang on — the failure mode that made
 // /api/movements unloadable. See docs/superpowers/notes/2026-09-21-vercel-dashboard-hang.md.
 //
-// It also replaces six flat selects joined with JS Maps by three requests whose
-// joins Postgres resolves via embedded resources.
+// It also replaces six flat selects joined with JS Maps by four requests (three for an envelope journal), plus the month lock,
+// whose joins Postgres resolves via embedded resources.
 //
 // The month feed and a single envelope's journal are the same query at different
 // scopes, so they share one implementation. Previously envelopeJournalQuery.ts held
@@ -20,7 +22,7 @@ import type { Movement } from './domain/movementsFeed'
 // `categories`/`envelopes`/`accounts` resolve unambiguously: expense_entries has
 // exactly one foreign key to each.
 const EXPENSE_SELECT
-  = 'id,date,label,amount,financed_by,'
+  = 'id,date,label,amount,financed_by,category_id,envelope_id,account_id,'
   + 'categories(name,emoji,is_fixed),'
   + 'envelopes(name,emoji),'
   + 'accounts(name)'
@@ -28,16 +30,19 @@ const EXPENSE_SELECT
 // income_entries reaches envelopes through target_envelope_id; naming the column
 // picks that relationship.
 const INCOME_SELECT
-  = 'id,date_received,label,amount,'
+  = 'id,date_received,label,amount,income_type_id,month_assigned,year_assigned,details_text,target_envelope_id,'
   + 'envelopes:target_envelope_id(name,emoji)'
 
 // transfers has TWO foreign keys to envelopes, so a bare `envelopes(...)` embed is
 // ambiguous and PostgREST answers 300 (PGRST201). Each side is disambiguated by
 // foreign-key name and aliased so the direction is explicit at the call site.
 const TRANSFER_SELECT
-  = 'id,date,reason,amount,'
+  = 'id,date,reason,amount,from_envelope_id,to_envelope_id,'
   + 'from_envelope:envelopes!from_envelope_id(name),'
   + 'to_envelope:envelopes!to_envelope_id(name)'
+
+// savings_entries has one foreign key to savings_goals.
+const SAVINGS_SELECT = 'id,date,year,month,amount,source,savings_goal_id,savings_goals(name)'
 
 // Node's fetch has no default timeout. Without this, a stalled request would hang
 // the handler indefinitely — reintroducing exactly the symptom this migration removes.
@@ -98,15 +103,23 @@ async function fetchFeed(
     )
   }
 
-  const [expenseRes, incomeRes, transferRes] = await Promise.all([
+  // Savings belong to the month feed only: a versement never touches an envelope.
+  const savingsQuery = envelopeId
+    ? null
+    : supabase.from('savings_entries').select(SAVINGS_SELECT).eq('year', year).eq('month', month)
+
+  const [expenseRes, incomeRes, transferRes, savingsRes, latestClosed] = await Promise.all([
     expenseQuery.abortSignal(signal),
     incomeQuery.abortSignal(signal),
     transferQuery.abortSignal(signal),
+    savingsQuery ? savingsQuery.abortSignal(signal) : Promise.resolve({ data: [], error: null }),
+    fetchLatestClosedMonth(event),
   ])
 
   assertOk('expense_entries', expenseRes.error)
   assertOk('income_entries', incomeRes.error)
   assertOk('transfers', transferRes.error)
+  assertOk('savings_entries', savingsRes.error)
 
   const expenses = (expenseRes.data ?? []).map((row: any) => {
     const category = unwrap(row.categories)
@@ -125,6 +138,9 @@ async function fetchFeed(
       categoryEmoji: category?.emoji ?? '',
       categoryIsFixed: Boolean(category && (category as any).is_fixed),
       accountName: account?.name ?? null,
+      categoryId: row.category_id ?? null,
+      envelopeId: row.envelope_id ?? null,
+      accountId: row.account_id ?? null,
     }
   })
 
@@ -137,6 +153,11 @@ async function fetchFeed(
       amount: Number(row.amount),
       envelopeName: envelope?.name ?? null,
       envelopeEmoji: envelope?.emoji ?? null,
+      incomeTypeId: row.income_type_id,
+      monthAssigned: row.month_assigned,
+      yearAssigned: row.year_assigned,
+      detailsText: row.details_text ?? null,
+      targetEnvelopeId: row.target_envelope_id ?? null,
     }
   })
 
@@ -147,9 +168,28 @@ async function fetchFeed(
     amount: Number(row.amount),
     fromEnvelopeName: unwrap(row.from_envelope)?.name ?? '?',
     toEnvelopeName: unwrap(row.to_envelope)?.name ?? '?',
+    fromEnvelopeId: row.from_envelope_id,
+    toEnvelopeId: row.to_envelope_id,
   }))
 
-  return buildMovementsFeed({ expenses, incomes, transfers: transferMovements })
+  const savings = (savingsRes.data ?? []).map((row: any) => ({
+    id: row.id,
+    date: row.date ?? null,
+    year: row.year,
+    month: row.month,
+    amount: Number(row.amount),
+    goalName: unwrap(row.savings_goals)?.name ?? '',
+    source: row.source,
+    savingsGoalId: row.savings_goal_id,
+  }))
+
+  return buildMovementsFeed({
+    expenses,
+    incomes,
+    transfers: transferMovements,
+    savings,
+    monthOpen: isMonthOpen({ year, month }, latestClosed),
+  })
 }
 
 /** Every movement assigned to the given month. */
