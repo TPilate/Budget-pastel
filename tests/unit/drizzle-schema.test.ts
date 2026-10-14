@@ -96,3 +96,28 @@ describe('compte rendu schema additions', () => {
     expect(monthlyReports.pdfPath.notNull).toBe(false)
   })
 })
+
+import { getTableConfig } from 'drizzle-orm/pg-core'
+import { incomeTypes, expenseEntries } from '../../drizzle/schema'
+
+describe('user feedback A schema', () => {
+  it('flags salary income types and carries their expected amount', () => {
+    expect(incomeTypes.isSalary.notNull).toBe(true)
+    expect(incomeTypes.isSalary.hasDefault).toBe(true)
+    expect(incomeTypes.expectedAmount.notNull).toBe(false)
+  })
+
+  it('lets an expense have no category', () => {
+    expect(expenseEntries.categoryId.notNull).toBe(false)
+  })
+
+  it('still requires a category or an envelope on every expense', () => {
+    const { checks } = getTableConfig(expenseEntries)
+    expect(checks.map((check) => check.name)).toContain('expense_entries_category_or_envelope')
+  })
+
+  it('dates each savings versement, leaving closure rows undated', () => {
+    expect(savingsEntries.date).toBeDefined()
+    expect(savingsEntries.date.notNull).toBe(false)
+  })
+})

@@ -31,6 +31,10 @@ export const incomeTypes = pgTable('income_types', {
   emoji: text('emoji').notNull(),
   requiresDetailsText: boolean('requires_details_text').notNull().default(false),
   defaultTargetEnvelopeId: uuid('default_target_envelope_id').references(() => envelopes.id),
+  // A salary type carries the amount expected each month. POST /api/incomes copies it onto
+  // the entry, which is what makes "Salaire reçu" and its variance non-zero.
+  isSalary: boolean('is_salary').notNull().default(false),
+  expectedAmount: numeric('expected_amount', { precision: 10, scale: 2 }),
   sortOrder: integer('sort_order').notNull().default(0),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
 })

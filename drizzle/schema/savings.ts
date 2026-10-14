@@ -8,6 +8,9 @@ export const savingsEntries = pgTable('savings_entries', {
   year: integer('year').notNull(),
   month: integer('month').notNull(),
   amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
+  // Set on every manual versement; NULL on closure versements (close_month does not write
+  // it) and on rows from before versements were dated.
+  date: date('date'),
   // A closure versement is a separate row from the manual one, so the manual upsert in
   // POST /api/savings can never overwrite what a month closure put aside.
   source: savingsEntrySourceEnum('source').notNull().default('manual'),

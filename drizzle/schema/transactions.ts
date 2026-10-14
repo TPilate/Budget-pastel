@@ -1,11 +1,12 @@
-import { pgTable, uuid, text, numeric, date, timestamp, integer, index, uniqueIndex } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, text, numeric, date, timestamp, integer, index, uniqueIndex, check } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 import { financedByEnum } from './enums'
 import { categories, envelopes, accounts, incomeTypes } from './reference'
 
 export const expenseEntries = pgTable('expense_entries', {
   id: uuid('id').defaultRandom().primaryKey(),
   date: date('date').notNull(),
-  categoryId: uuid('category_id').notNull().references(() => categories.id),
+  categoryId: uuid('category_id').references(() => categories.id),
   label: text('label').notNull(),
   amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
   accountId: uuid('account_id').references(() => accounts.id),
@@ -16,6 +17,9 @@ export const expenseEntries = pgTable('expense_entries', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   yearMonthIdx: index('expense_entries_year_month_idx').on(table.yearAssigned, table.monthAssigned),
+  // An expense coming out of an envelope needs no category; one with neither would be
+  // invisible to every breakdown.
+  categoryOrEnvelope: check('expense_entries_category_or_envelope', sql`${table.categoryId} IS NOT NULL OR ${table.envelopeId} IS NOT NULL`),
 }))
 
 export const incomeEntries = pgTable('income_entries', {
