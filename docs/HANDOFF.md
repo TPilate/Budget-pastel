@@ -43,7 +43,7 @@ is what caused the original infinite-loading bug on the home page. Measured: the
 npm run dev                  # dev server
 npm run build                # production build (run this before believing anything works)
 npm test                     # vitest — currently 373 passing across 48 files
-npm run test:e2e             # playwright — perf.spec has 13 tests (read-only); entry.spec and epargne.spec leave permanent rows in the live database, run them deliberately
+npm run test:e2e             # playwright — perf.spec has 14 tests (read-only); entry.spec and epargne.spec leave permanent rows in the live database, run them deliberately
 npx playwright test tests/e2e/perf.spec.ts   # navigation performance (read-only, safe on the live DB)
 PERF_BASE_URL=https://budget-pastel.vercel.app npx playwright test tests/e2e/perf.spec.ts   # same, against production (read-only; run NO other spec there)
 npm run db:generate          # drizzle-kit generate (migrations)
