@@ -40,7 +40,7 @@ const drawerOpen = computed({
 
 async function handleEdited() {
   selected.value = null
-  await refreshNuxtData(['page-mouvements', 'envelope-ceilings'])
+  await refreshNuxtData(['page-mouvements', 'envelope-ceilings', 'page-dashboard'])
 }
 
 function formatAmount(movement: Movement) {
