@@ -1,27 +1,19 @@
 <script setup lang="ts">
-interface Movement {
-  id: string
-  type: 'expense' | 'income' | 'transfer'
-  date: string
-  label: string
-  envelopeLabel: string
-  origin: string
-  amount: number
-  sign: 'negative' | 'positive' | 'neutral'
-}
+import type { Movement } from '~~/shared/types/movement'
 
 interface EntryReferenceData {
   categories: { id: string, name: string, emoji: string, requiresDetailsText?: boolean }[]
   accounts: { id: string, name: string, emoji: string }[]
   envelopes: { id: string, name: string, emoji: string }[]
   incomeTypes: { id: string, name: string, emoji: string, requiresDetailsText?: boolean }[]
+  savingsGoals: { id: string, name: string }[]
 }
 interface MouvementsPage { movements: Movement[], reference: EntryReferenceData }
 
 const { data: page, error } = useLazyFetch<MouvementsPage>('/api/pages/mouvements', { key: 'page-mouvements' })
 const data = computed(() => page.value?.movements ?? null)
 
-const activeFilter = ref<'all' | 'expense' | 'income' | 'transfer'>('all')
+const activeFilter = ref<'all' | 'expense' | 'income' | 'transfer' | 'savings'>('all')
 const searchText = ref('')
 
 const filterOptions = [
@@ -29,6 +21,7 @@ const filterOptions = [
   { value: 'expense', label: 'Sorties' },
   { value: 'income', label: 'Entrées' },
   { value: 'transfer', label: 'Transferts' },
+  { value: 'savings', label: 'Épargne' },
 ]
 
 const filteredMovements = computed(() => {
@@ -38,6 +31,17 @@ const filteredMovements = computed(() => {
     .filter((movement) => activeFilter.value === 'all' || movement.type === activeFilter.value)
     .filter((movement) => !query || movement.label.toLowerCase().includes(query))
 })
+
+const selected = ref<Movement | null>(null)
+const drawerOpen = computed({
+  get: () => selected.value !== null,
+  set: (open: boolean) => { if (!open) selected.value = null },
+})
+
+async function handleEdited() {
+  selected.value = null
+  await refreshNuxtData(['page-mouvements', 'envelope-ceilings'])
+}
 
 function formatAmount(movement: Movement) {
   const formatted = formatEuro(Math.abs(movement.amount))
@@ -102,7 +106,12 @@ function formatDate(isoDate: string) {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="movement in filteredMovements" :key="movement.id" class="border-t border-divider">
+              <tr
+                v-for="movement in filteredMovements"
+                :key="movement.id"
+                class="cursor-pointer border-t border-divider hover:bg-app-bg"
+                @click="selected = movement"
+              >
                 <td class="py-2.5 text-ink-muted">{{ formatDate(movement.date) }}</td>
                 <td class="py-2.5 font-semibold text-ink">{{ movement.label }}</td>
                 <td class="py-2.5 text-ink-muted">{{ movement.envelopeLabel }}</td>
@@ -120,5 +129,15 @@ function formatDate(isoDate: string) {
     </div>
 
     <EntryPanel :reference-data="page?.reference ?? null" :reference-error="Boolean(error)" />
+
+    <DetailDrawer v-model:open="drawerOpen" :title="selected?.label ?? ''">
+      <MovementEditor
+        v-if="selected && page"
+        :key="selected.id"
+        :movement="selected"
+        :reference="page.reference"
+        @done="handleEdited"
+      />
+    </DetailDrawer>
   </div>
 </template>
