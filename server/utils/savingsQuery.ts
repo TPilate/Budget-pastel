@@ -36,8 +36,7 @@ export async function fetchSavings(event: H3Event, year: number, month: number):
     })
   }
 
-  // savings_entries has no unique index on (savings_goal_id, year, month), so two rows
-  // for one goal are possible. Summing keeps the displayed total correct either way.
+  // A poche can have several versements in a month; summing gives its monthly total.
   const byGoal = new Map<string, SavingsEntryView>()
   for (const row of result.data ?? []) {
     const goalId = (row as any).savings_goal_id

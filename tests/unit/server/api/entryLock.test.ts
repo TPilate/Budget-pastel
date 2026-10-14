@@ -52,7 +52,7 @@ describe('closed-month lock on every create endpoint', () => {
   })
 
   it('checks a savings entry against its month', async () => {
-    lock.input = { savingsGoalId: 'g', year: 2026, month: 9, amount: 10 }
+    lock.input = { savingsGoalId: 'g', date: '2026-09-15', amount: 10 }
     await routes.savings(event())
     expect(lock.assertMonthOpen).toHaveBeenCalledWith(expect.anything(), 2026, 9)
   })
@@ -78,7 +78,7 @@ describe('closed-month lock on every create endpoint', () => {
     lock.input = {
       date: '2026-09-28', categoryId: 'c', label: 'x', amount: 10, financedBy: 'budget',
       incomeTypeId: 'i', dateReceived: '2026-09-28', monthAssigned: 9, yearAssigned: 2026,
-      fromEnvelopeId: 'a', toEnvelopeId: 'b', reason: 'r', savingsGoalId: 'g', year: 2026, month: 9,
+      fromEnvelopeId: 'a', toEnvelopeId: 'b', reason: 'r', savingsGoalId: 'g',
     }
     lock.assertMonthOpen.mockRejectedValueOnce(Object.assign(new Error('closed'), { statusCode: 409 }))
     await expect(routes[name](event())).rejects.toMatchObject({ statusCode: 409 })
