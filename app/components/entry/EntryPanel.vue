@@ -12,12 +12,13 @@ const emit = defineEmits<{ saved: [] }>()
 
 const route = useRoute()
 const initialMode = route.query.mode === 'transfer' ? 'transfer' : 'expense'
-const mode = ref<'expense' | 'income' | 'transfer'>(initialMode)
+const mode = ref<'expense' | 'income' | 'transfer' | 'savings'>(initialMode)
 
 const modeOptions = [
   { value: 'expense', label: '− Sortie' },
   { value: 'income', label: '+ Entrée' },
   { value: 'transfer', label: '⇄ Transfert' },
+  { value: 'savings', label: '🐷 Épargne' },
 ]
 
 interface ReferenceItem {
@@ -32,6 +33,7 @@ interface EntryReferenceData {
   accounts: ReferenceItem[]
   envelopes: ReferenceItem[]
   incomeTypes: ReferenceItem[]
+  savingsGoals: { id: string, name: string }[]
 }
 
 const props = defineProps<{
@@ -53,6 +55,7 @@ const categories = computed(() => referenceData.value?.categories ?? [])
 const accounts = computed(() => referenceData.value?.accounts ?? [])
 const envelopes = computed(() => referenceData.value?.envelopes ?? [])
 const incomeTypes = computed(() => referenceData.value?.incomeTypes ?? [])
+const savingsGoals = computed(() => referenceData.value?.savingsGoals ?? [])
 
 const draftAmount = ref(0)
 const draftExpenseEnvelopeId = ref('')
@@ -68,6 +71,8 @@ interface PreviewLine {
 }
 
 const previewLines = computed<PreviewLine[]>(() => {
+  if (mode.value === 'savings') return []
+
   if (mode.value === 'transfer') {
     const from = ceilingsById.value.get(draftTransferFromId.value)
     const to = ceilingsById.value.get(draftTransferToId.value)
@@ -87,7 +92,7 @@ const previewLines = computed<PreviewLine[]>(() => {
 })
 
 function handleSaved() {
-  refreshNuxtData(['page-mouvements', 'envelope-ceilings'])
+  refreshNuxtData(['page-mouvements', 'envelope-ceilings', 'page-dashboard'])
   draftAmount.value = 0
   draftExpenseEnvelopeId.value = ''
   draftIncomeEnvelopeId.value = ''
@@ -125,12 +130,18 @@ function handleSaved() {
         @envelope-change="draftIncomeEnvelopeId = $event"
       />
       <TransferForm
-        v-else
+        v-else-if="mode === 'transfer'"
         :envelopes="envelopes"
         @saved="handleSaved"
         @amount-change="draftAmount = $event"
         @from-envelope-change="draftTransferFromId = $event"
         @to-envelope-change="draftTransferToId = $event"
+      />
+      <SavingsForm
+        v-else
+        :goals="savingsGoals"
+        @saved="handleSaved"
+        @amount-change="draftAmount = $event"
       />
     </template>
     <p v-else class="rounded-[16px] bg-app-bg p-3 text-[11px] font-semibold text-ink-muted" data-testid="entry-loading">

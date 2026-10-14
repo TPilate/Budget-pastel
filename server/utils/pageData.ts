@@ -19,26 +19,26 @@ function currentMonth(now: Date) {
 
 export async function getDashboardPage(event: H3Event, now: Date) {
   const { year, month } = currentMonth(now)
-  // fetchDashboard is the only pool-backed read here (reserve balances); the others are
+  // fetchDashboard is the only pool-backed read here (reserve balances); the other is
   // Data API, so this never holds more pool slots than /api/dashboard alone did.
-  const [dashboard, goals, closureStatus] = await Promise.all([
+  const [dashboard, closureStatus] = await Promise.all([
     fetchDashboard(event, year, month, now),
-    fetchSavingsGoals(event),
     getClosureStatus(event, now),
   ])
-  return { dashboard, goals, closureStatus }
+  return { dashboard, closureStatus }
 }
 
 export async function getMouvementsPage(event: H3Event, now: Date) {
   const { year, month } = currentMonth(now)
-  const [movements, categories, accounts, envelopes, incomeTypes] = await Promise.all([
+  const [movements, categories, accounts, envelopes, incomeTypes, savingsGoals] = await Promise.all([
     fetchMovements(event, year, month),
     fetchActiveRows(event, 'categories'),
     fetchActiveRows(event, 'accounts'),
     fetchActiveRows(event, 'envelopes'),
     fetchActiveRows(event, 'income_types'),
+    fetchSavingsGoals(event),
   ])
-  return { movements, reference: { categories, accounts, envelopes, incomeTypes } }
+  return { movements, reference: { categories, accounts, envelopes, incomeTypes, savingsGoals } }
 }
 
 export async function getEnveloppesPage(event: H3Event, now: Date) {

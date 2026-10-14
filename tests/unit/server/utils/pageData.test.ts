@@ -51,7 +51,7 @@ describe('page composers', () => {
     const result = getMouvementsPage(event, NOW)
     await Promise.resolve()
     expect(deferred.pending.map((call) => call.name).sort()).toEqual(
-      ['fetchActiveRows', 'fetchActiveRows', 'fetchActiveRows', 'fetchActiveRows', 'fetchMovements'],
+      ['fetchActiveRows', 'fetchActiveRows', 'fetchActiveRows', 'fetchActiveRows', 'fetchMovements', 'fetchSavingsGoals'],
     )
     expect(src.fetchMovements).toHaveBeenCalledWith(event, 2026, 10)
     expect(src.fetchActiveRows.mock.calls.map((call) => call[1]).sort()).toEqual(['accounts', 'categories', 'envelopes', 'income_types'])
@@ -59,6 +59,7 @@ describe('page composers', () => {
     const page = await settle(result, {
       fetchMovements: () => [{ id: 'm1' }],
       fetchActiveRows: (args) => [{ table: args[1] }],
+      fetchSavingsGoals: () => [{ id: 'g1' }],
     })
     expect(page).toEqual({
       movements: [{ id: 'm1' }],
@@ -67,6 +68,7 @@ describe('page composers', () => {
         accounts: [{ table: 'accounts' }],
         envelopes: [{ table: 'envelopes' }],
         incomeTypes: [{ table: 'income_types' }],
+        savingsGoals: [{ id: 'g1' }],
       },
     })
   })
@@ -102,18 +104,17 @@ describe('page composers', () => {
     expect(page).toEqual({ envelopes: [{ id: 'l1' }], reserves: [{ id: 'r1' }] })
   })
 
-  it('Tableau de bord: dashboard, goals and closure status together', async () => {
+  it('Tableau de bord: dashboard and closure status together', async () => {
     const result = getDashboardPage(event, NOW)
     await Promise.resolve()
-    expect(deferred.pending.map((call) => call.name).sort()).toEqual(['fetchDashboard', 'fetchSavingsGoals', 'getClosureStatus'])
+    expect(deferred.pending.map((call) => call.name).sort()).toEqual(['fetchDashboard', 'getClosureStatus'])
     expect(src.fetchDashboard).toHaveBeenCalledWith(event, 2026, 10, NOW)
     expect(src.getClosureStatus).toHaveBeenCalledWith(event, NOW)
     const page = await settle(result, {
       fetchDashboard: () => ({ month: 'x' }),
-      fetchSavingsGoals: () => [{ id: 'g1' }],
       getClosureStatus: () => ({ closableMonth: null }),
     })
-    expect(page).toEqual({ dashboard: { month: 'x' }, goals: [{ id: 'g1' }], closureStatus: { closableMonth: null } })
+    expect(page).toEqual({ dashboard: { month: 'x' }, closureStatus: { closableMonth: null } })
   })
 
   it('fails the whole page when one read fails, never returning part of it', async () => {

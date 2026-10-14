@@ -22,16 +22,13 @@ interface DashboardPayload {
   recentMovements: { id: string, type: string, date: string, label: string, envelopeLabel: string, origin: string, amount: number, sign: string }[]
 }
 
-interface SavingsGoal { id: string, name: string }
 interface DashboardPage {
   dashboard: DashboardPayload
-  goals: SavingsGoal[]
   closureStatus: { closableMonth: { year: number, month: number, label: string, name: string } | null }
 }
 
-const { data: page, error, refresh } = useLazyFetch<DashboardPage>('/api/pages/dashboard', { key: 'page-dashboard' })
+const { data: page, error } = useLazyFetch<DashboardPage>('/api/pages/dashboard', { key: 'page-dashboard' })
 const dashboard = computed(() => page.value?.dashboard ?? null)
-const goals = computed(() => page.value?.goals ?? [])
 const closureStatus = computed(() => page.value?.closureStatus ?? null)
 
 // With no income recorded, every percentage is meaningless and the donut would be a
@@ -91,46 +88,6 @@ function signedAmount(movement: { amount: number, sign: string }) {
 function shortDate(isoDate: string) {
   const [, month, day] = isoDate.split('-')
   return `${day}/${month}`
-}
-
-// --- savings entry -------------------------------------------------------------
-const savingsGoalId = ref('')
-const savingsAmount = ref('')
-const savingsError = ref('')
-const isSavingSavings = ref(false)
-
-// Hydration is fast now, but it is never instant, and correctness should not depend on
-// how quickly it lands. The savings form stays disabled until mounted so nothing can be
-// typed into or submitted from markup Vue has not taken over yet — the same guard as
-// app/pages/login.vue, whose header comment explains why input typed before hydration is lost.
-const isHydrated = ref(false)
-onMounted(() => {
-  isHydrated.value = true
-})
-
-async function recordSavings() {
-  savingsError.value = ''
-  isSavingSavings.value = true
-  try {
-    await $fetch('/api/savings', {
-      method: 'POST',
-      body: {
-        savingsGoalId: savingsGoalId.value,
-        year: dashboard.value!.month.year,
-        month: dashboard.value!.month.month,
-        // Accept a French decimal comma, as app/pages/envies.vue does.
-        amount: savingsAmount.value.trim().replace(',', '.'),
-      },
-    })
-    savingsAmount.value = ''
-    await refresh()
-  }
-  catch (error) {
-    savingsError.value = apiErrorMessage(error) ?? "Impossible d'enregistrer ce montant."
-  }
-  finally {
-    isSavingSavings.value = false
-  }
 }
 </script>
 
@@ -317,23 +274,7 @@ async function recordSavings() {
             </li>
           </ul>
 
-          <form class="mt-3 flex flex-wrap items-end gap-2 border-t border-divider pt-3" @submit.prevent="recordSavings">
-            <label class="flex flex-1 flex-col gap-1 text-[11px] font-semibold text-ink-faint">
-              Objectif
-              <select v-model="savingsGoalId" required :disabled="!isHydrated" class="rounded-lg border border-divider px-2 py-1.5 text-[12.5px] text-ink disabled:bg-app-bg">
-                <option value="">Choisir…</option>
-                <option v-for="goal in goals" :key="goal.id" :value="goal.id">{{ goal.name }}</option>
-              </select>
-            </label>
-            <label class="flex flex-col gap-1 text-[11px] font-semibold text-ink-faint">
-              Montant
-              <input v-model="savingsAmount" required inputmode="decimal" :disabled="!isHydrated" class="w-24 rounded-lg border border-divider px-2 py-1.5 text-[12.5px] text-ink disabled:bg-app-bg">
-            </label>
-            <button type="submit" :disabled="isSavingSavings || !isHydrated" class="rounded-[10px] bg-primary px-3 py-1.5 text-[12px] font-bold text-primary-ink disabled:opacity-50">
-              {{ isSavingSavings ? 'Ajout…' : 'Enregistrer' }}
-            </button>
-            <p v-if="savingsError" class="w-full text-[11.5px] font-semibold text-warn-ink">{{ savingsError }}</p>
-          </form>
+          <NuxtLink to="/mouvements" class="mt-3 block text-[11.5px] font-bold text-ink-muted">Ajouter un versement →</NuxtLink>
         </section>
 
         <section v-for="reserve in dashboard.reserves" :key="reserve.id" class="rounded-[18px] border border-divider bg-app-bg p-5">

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { useAmountInput } from '../../../app/composables/useAmountInput'
+import { useAmountInput, amountToBuffer } from '../../../app/composables/useAmountInput'
 
 describe('useAmountInput', () => {
   it('starts at zero', () => {
@@ -81,5 +81,15 @@ describe('useAmountInput', () => {
     pressDigit('9')
     reset()
     expect(displayValue.value).toBe('0')
+  })
+})
+
+describe('amountToBuffer', () => {
+  it('turns a stored amount into the keypad buffer, French comma', () => {
+    expect(amountToBuffer(62.4)).toBe('62,4')
+    expect(amountToBuffer(2100)).toBe('2100')
+  })
+  it('round-trips through useAmountInput', () => {
+    expect(useAmountInput(amountToBuffer(28.5)).amount.value).toBe(28.5)
   })
 })

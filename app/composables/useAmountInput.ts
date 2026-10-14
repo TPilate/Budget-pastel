@@ -40,3 +40,8 @@ export function useAmountInput(initial = '0') {
 
   return { buffer, displayValue, amount, pressDigit, pressComma, backspace, reset }
 }
+
+/** The keypad buffer for an amount already saved, e.g. 62.4 → "62,4". */
+export function amountToBuffer(value: number): string {
+  return String(value).replace('.', ',')
+}

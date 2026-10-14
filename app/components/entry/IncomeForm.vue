@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { IncomeEntryInput } from '~~/shared/schemas/incomeEntry'
+
 interface ReferenceItem {
   id: string
   name: string
@@ -14,23 +16,25 @@ const emit = defineEmits<{ saved: []; 'amount-change': [number]; 'envelope-chang
 const props = defineProps<{
   incomeTypes: ReferenceItem[]
   envelopes: ReferenceItem[]
+  editing?: { id: string, fields: IncomeEntryInput } | null
 }>()
+const initial = props.editing?.fields
 
 const incomeTypes = computed(() => props.incomeTypes)
 const envelopes = computed(() => props.envelopes)
 
-const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInput()
+const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInput(initial ? amountToBuffer(initial.amount) : '0')
 
-const incomeTypeId = ref(incomeTypes.value[0]?.id ?? '')
-const label = ref('')
-const dateReceived = ref(new Date().toISOString().slice(0, 10))
+const incomeTypeId = ref(initial?.incomeTypeId ?? incomeTypes.value[0]?.id ?? '')
+const label = ref(initial?.label ?? '')
+const dateReceived = ref(initial?.dateReceived ?? new Date().toISOString().slice(0, 10))
 const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 const now = new Date()
-const monthAssigned = ref(now.getMonth() + 1)
-const yearAssigned = ref(now.getFullYear())
-const yearOptions = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1]
-const detailsText = ref('')
-const targetEnvelopeId = ref('')
+const monthAssigned = ref(initial?.monthAssigned ?? now.getMonth() + 1)
+const yearAssigned = ref(initial?.yearAssigned ?? now.getFullYear())
+const yearOptions = [...new Set([now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1, ...(initial ? [initial.yearAssigned] : [])])].sort()
+const detailsText = ref(initial?.detailsText ?? '')
+const targetEnvelopeId = ref(initial?.targetEnvelopeId ?? '')
 
 const selectedIncomeType = computed(() => incomeTypes.value.find((incomeType: any) => incomeType.id === incomeTypeId.value))
 
@@ -49,8 +53,8 @@ async function submit() {
   isSubmitting.value = true
 
   try {
-    await $fetch('/api/incomes', {
-      method: 'POST',
+    await $fetch(props.editing ? `/api/incomes/${props.editing.id}` : '/api/incomes', {
+      method: props.editing ? 'PATCH' : 'POST',
       body: {
         incomeTypeId: incomeTypeId.value,
         label: label.value,
@@ -119,7 +123,7 @@ async function submit() {
     <p v-if="errorMessage" class="text-center text-[12px] font-medium text-warn-ink">{{ errorMessage }}</p>
 
     <button type="button" :disabled="!canSubmit || isSubmitting" class="rounded-[18px] bg-ink py-[14px] text-center text-[14.5px] font-bold text-white disabled:opacity-50" @click="submit">
-      Enregistrer l'entrée
+      {{ editing ? 'Enregistrer les modifications' : "Enregistrer l'entrée" }}
     </button>
   </div>
 </template>

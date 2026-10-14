@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { TransferInput } from '~~/shared/schemas/transfer'
+
 interface ReferenceItem {
   id: string
   name: string
@@ -10,15 +12,19 @@ const emit = defineEmits<{ saved: []; 'amount-change': [number]; 'from-envelope-
 // Reference data is fetched once by EntryPanel and passed down, rather than each form
 // fetching its own: every endpoint pays for its own auth round-trip to Supabase, so
 // per-form fetching made a single page render cost several extra round-trips.
-const props = defineProps<{ envelopes: ReferenceItem[] }>()
+const props = defineProps<{
+  envelopes: ReferenceItem[]
+  editing?: { id: string, fields: TransferInput } | null
+}>()
+const initial = props.editing?.fields
 
 const envelopes = computed(() => props.envelopes)
 
-const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInput()
+const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInput(initial ? amountToBuffer(initial.amount) : '0')
 
-const fromEnvelopeId = ref(envelopes.value[0]?.id ?? '')
-const toEnvelopeId = ref(envelopes.value[1]?.id ?? '')
-const reason = ref('')
+const fromEnvelopeId = ref(initial?.fromEnvelopeId ?? envelopes.value[0]?.id ?? '')
+const toEnvelopeId = ref(initial?.toEnvelopeId ?? envelopes.value[1]?.id ?? '')
+const reason = ref(initial?.reason ?? '')
 
 watch(amount, (value) => emit('amount-change', value), { immediate: true })
 watch(fromEnvelopeId, (value) => emit('from-envelope-change', value), { immediate: true })
@@ -42,8 +48,8 @@ async function submit() {
   isSubmitting.value = true
 
   try {
-    await $fetch('/api/transfers', {
-      method: 'POST',
+    await $fetch(props.editing ? `/api/transfers/${props.editing.id}` : '/api/transfers', {
+      method: props.editing ? 'PATCH' : 'POST',
       body: {
         fromEnvelopeId: fromEnvelopeId.value,
         toEnvelopeId: toEnvelopeId.value,
@@ -94,7 +100,7 @@ async function submit() {
     <p v-if="errorMessage" class="text-center text-[12px] font-medium text-warn-ink">{{ errorMessage }}</p>
 
     <button type="button" :disabled="!canSubmit || isSubmitting" class="rounded-[18px] bg-ink py-[14px] text-center text-[14.5px] font-bold text-white disabled:opacity-50" @click="submit">
-      Valider le transfert
+      {{ editing ? 'Enregistrer les modifications' : 'Valider le transfert' }}
     </button>
   </div>
 </template>

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { ExpenseEntryInput } from '~~/shared/schemas/expenseEntry'
+
 interface ReferenceItem {
   id: string
   name: string
@@ -14,20 +16,26 @@ const props = defineProps<{
   categories: ReferenceItem[]
   accounts: ReferenceItem[]
   envelopes: ReferenceItem[]
+  editing?: { id: string, fields: ExpenseEntryInput } | null
 }>()
+const initial = props.editing?.fields
 
 const categories = computed(() => props.categories)
 const accounts = computed(() => props.accounts)
 const envelopes = computed(() => props.envelopes)
 
-const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInput()
+const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInput(initial ? amountToBuffer(initial.amount) : '0')
 
-const categoryId = ref(categories.value[0]?.id ?? '')
-const label = ref('')
-const date = ref(new Date().toISOString().slice(0, 10))
-const accountId = ref(accounts.value[0]?.id ?? '')
-const envelopeId = ref<string>('')
-const financedBy = ref<'budget' | 'gift_given' | 'gift_received'>('budget')
+const categoryId = ref(initial?.categoryId ?? categories.value[0]?.id ?? '')
+const label = ref(initial?.label ?? '')
+const date = ref(initial?.date ?? new Date().toISOString().slice(0, 10))
+const accountId = ref(initial?.accountId ?? accounts.value[0]?.id ?? '')
+const financedBy = ref<'budget' | 'gift_given' | 'gift_received'>(initial?.financedBy ?? 'budget')
+// A gift_received expense is stored against the reserve envelope; the form derives that
+// itself, so the envelope picker starts empty for it.
+const envelopeId = ref<string>(initial && initial.financedBy !== 'gift_received' ? (initial.envelopeId ?? '') : '')
+
+const needsCategory = computed(() => expenseNeedsCategory(envelopeId.value, financedBy.value))
 
 const financedByOptions = [
   { value: 'budget', label: 'Budget du mois' },
@@ -43,7 +51,7 @@ watch(envelopeId, (value) => emit('envelope-change', value), { immediate: true }
 const errorMessage = ref('')
 const isSubmitting = ref(false)
 
-const canSubmit = computed(() => amount.value > 0 && label.value.trim().length > 0 && categoryId.value.length > 0)
+const canSubmit = computed(() => amount.value > 0 && label.value.trim().length > 0 && (!needsCategory.value || categoryId.value.length > 0))
 
 async function submit() {
   if (!canSubmit.value || isSubmitting.value) return
@@ -52,11 +60,12 @@ async function submit() {
   isSubmitting.value = true
 
   try {
-    await $fetch('/api/expenses', {
-      method: 'POST',
+    await $fetch(props.editing ? `/api/expenses/${props.editing.id}` : '/api/expenses', {
+      method: props.editing ? 'PATCH' : 'POST',
       body: {
         date: date.value,
-        categoryId: categoryId.value,
+        // Out of an envelope, the envelope says where the expense belongs.
+        categoryId: needsCategory.value ? categoryId.value : null,
         label: label.value,
         amount: amount.value,
         accountId: financedBy.value === 'gift_received' ? null : (accountId.value || null),
@@ -80,7 +89,7 @@ async function submit() {
     </div>
 
     <div class="rounded-[22px] bg-white px-4">
-      <EntryFormRow label="Catégorie">
+      <EntryFormRow v-if="needsCategory" label="Catégorie">
         <select v-model="categoryId" class="bg-transparent text-right font-bold text-ink">
           <option v-for="category in categories" :key="category.id" :value="category.id">
             {{ category.emoji }} {{ category.name }}
@@ -118,7 +127,7 @@ async function submit() {
     <p v-if="errorMessage" class="text-center text-[12px] font-medium text-warn-ink">{{ errorMessage }}</p>
 
     <button type="button" :disabled="!canSubmit || isSubmitting" class="rounded-[18px] bg-ink py-[14px] text-center text-[14.5px] font-bold text-white disabled:opacity-50" @click="submit">
-      Enregistrer la sortie
+      {{ editing ? 'Enregistrer les modifications' : 'Enregistrer la sortie' }}
     </button>
   </div>
 </template>
