@@ -28,22 +28,21 @@ const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInp
 
 const categoryId = ref(initial?.categoryId ?? categories.value[0]?.id ?? '')
 const label = ref(initial?.label ?? '')
-const date = ref(initial?.date ?? new Date().toISOString().slice(0, 10))
+const date = ref(initial?.date ?? todayLocalIso())
 const accountId = ref(initial?.accountId ?? accounts.value[0]?.id ?? '')
 const financedBy = ref<'budget' | 'gift_given' | 'gift_received'>(initial?.financedBy ?? 'budget')
 // A gift_received expense is stored against the reserve envelope; the form derives that
 // itself, so the envelope picker starts empty for it.
 const envelopeId = ref<string>(initial && initial.financedBy !== 'gift_received' ? (initial.envelopeId ?? '') : '')
 
-const needsCategory = computed(() => expenseNeedsCategory(envelopeId.value, financedBy.value))
+const reserveEnvelope = computed(() => envelopes.value.find((envelope: any) => envelope.kind === 'reserve'))
+const needsCategory = computed(() => expenseNeedsCategory(envelopeId.value, financedBy.value, Boolean(reserveEnvelope.value)))
 
 const financedByOptions = [
   { value: 'budget', label: 'Budget du mois' },
   { value: 'gift_given', label: "Cadeau que j'offre" },
   { value: 'gift_received', label: 'Argent de cadeau reçu' },
 ]
-
-const reserveEnvelope = computed(() => envelopes.value.find((envelope: any) => envelope.kind === 'reserve'))
 
 watch(amount, (value) => emit('amount-change', value), { immediate: true })
 watch(envelopeId, (value) => emit('envelope-change', value), { immediate: true })

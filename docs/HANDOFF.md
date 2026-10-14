@@ -43,7 +43,7 @@ is what caused the original infinite-loading bug on the home page. Measured: the
 npm run dev                  # dev server
 npm run build                # production build (run this before believing anything works)
 npm test                     # vitest — currently 373 passing across 48 files
-npm run test:e2e             # playwright — perf.spec has 14 tests (read-only); entry.spec and epargne.spec leave permanent rows in the live database, run them deliberately
+npm run test:e2e             # playwright — perf.spec has 14 tests (read-only); entry.spec leaves permanent rows and epargne.spec leaves one renamed poche in the live database, run them deliberately
 npx playwright test tests/e2e/perf.spec.ts   # navigation performance (read-only, safe on the live DB)
 PERF_BASE_URL=https://budget-pastel.vercel.app npx playwright test tests/e2e/perf.spec.ts   # same, against production (read-only; run NO other spec there)
 npm run db:generate          # drizzle-kit generate (migrations)
@@ -79,7 +79,7 @@ Spec: `docs/superpowers/specs/2026-10-14-retours-utilisateurs-a-design.md`; plan
 - **Salary** = a flag ("C'est un salaire") plus an expected amount ("Montant prévu") on the income type, set in Paramètres. The flag and amount are copied onto each income entry and back-filled in open months, so "Salaire reçu" is fixed as soon as a type is flagged. No type is flagged yet: flag one in Paramètres → Types de revenus.
 - **Edit / delete**: click a row in Mouvements to open the drawer (`MovementEditor`); PATCH and DELETE routes exist for expenses, incomes, transfers and savings. A closed month is frozen: rows there are read-only ("Mois clôturé — non modifiable"), and closing versements cannot be changed. An expense may come out of an envelope with no category.
 - **Savings** are dated, additive versements entered from the entry panel's "🐷 Épargne" tab; they appear in the Mouvements feed (type `savings`) and can be edited or deleted like other movements.
-- `tests/e2e/movement-edit.spec.ts` cleans up after itself (it deletes every row it creates); its salary test skips until an income type is flagged. It is safe to run on the live DB, unlike `entry.spec.ts` and `epargne.spec.ts`.
+- `tests/e2e/movement-edit.spec.ts` cleans up after itself (it deletes every row it creates); its salary test skips until an income type is flagged. It is safe to run on the live DB, unlike `entry.spec.ts` (permanent rows) and `epargne.spec.ts` (one renamed poche per run).
 
 ### The Compte rendu milestone (just finished, not yet live)
 
@@ -169,13 +169,13 @@ were unset while still exiting green. Treat a weakened assertion as a real defec
 
 ## 5. E2E leaves residue in the live database
 
-`tests/e2e/epargne.spec.ts` creates a real poche and a savings entry, because there is
-deliberately no delete endpoint. It neutralises them in a `finally` — entry zeroed, poche set
-to `monthlyAmount: 0` / `targetAmount: null`, renamed with a `zz-e2e-` prefix — so the
-figures do not drift. **But neutralised is not invisible: the row still renders on
+`tests/e2e/epargne.spec.ts` creates a real poche and a 300 € versement. The versement is
+deleted in a `finally` (`DELETE /api/savings/:id`); the poche has deliberately no delete
+endpoint, so it is neutralised there instead — `monthlyAmount: 0` / `targetAmount: null`,
+renamed with a `zz-e2e-` prefix — so the figures do not drift. **But neutralised is not invisible: the row still renders on
 `/epargne`, and one accumulates per run.**
 
-After an E2E run, delete rows named `zz-e2e-…` by hand (entries first, for the foreign key).
+After an E2E run, delete poches named `zz-e2e-…` by hand.
 The live database was left clean at `d6817d7`: three real poches, zero savings entries.
 
 The proper fix is in the follow-ups file — an `archived_at` column on `savings_goals`, which

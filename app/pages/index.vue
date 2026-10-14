@@ -274,7 +274,7 @@ function shortDate(isoDate: string) {
             </li>
           </ul>
 
-          <NuxtLink to="/mouvements" class="mt-3 block text-[11.5px] font-bold text-ink-muted">Ajouter un versement →</NuxtLink>
+          <NuxtLink to="/mouvements?mode=savings" class="mt-3 block text-[11.5px] font-bold text-ink-muted">Ajouter un versement →</NuxtLink>
         </section>
 
         <section v-for="reserve in dashboard.reserves" :key="reserve.id" class="rounded-[18px] border border-divider bg-app-bg p-5">

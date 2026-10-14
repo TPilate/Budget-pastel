@@ -17,7 +17,7 @@ const initial = props.editing?.fields
 const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInput(initial ? amountToBuffer(initial.amount) : '0')
 
 const savingsGoalId = ref(initial?.savingsGoalId ?? props.goals[0]?.id ?? '')
-const date = ref(initial?.date ?? new Date().toISOString().slice(0, 10))
+const date = ref(initial?.date ?? todayLocalIso())
 
 watch(amount, (value) => emit('amount-change', value), { immediate: true })
 

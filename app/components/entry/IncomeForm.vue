@@ -27,7 +27,7 @@ const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInp
 
 const incomeTypeId = ref(initial?.incomeTypeId ?? incomeTypes.value[0]?.id ?? '')
 const label = ref(initial?.label ?? '')
-const dateReceived = ref(initial?.dateReceived ?? new Date().toISOString().slice(0, 10))
+const dateReceived = ref(initial?.dateReceived ?? todayLocalIso())
 const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 const now = new Date()
 const monthAssigned = ref(initial?.monthAssigned ?? now.getMonth() + 1)

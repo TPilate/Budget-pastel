@@ -36,6 +36,11 @@ async function remove() {
     await $fetch(`${ENDPOINTS[props.movement.type]}/${props.movement.id}`, { method: 'DELETE' })
     emit('done')
   } catch (error) {
+    // Already gone (deleted elsewhere): the goal is reached, so close and refresh.
+    if ((error as { statusCode?: number } | null)?.statusCode === 404) {
+      emit('done')
+      return
+    }
     deleteError.value = apiErrorMessage(error) ?? 'Impossible de supprimer ce mouvement.'
   } finally {
     isDeleting.value = false

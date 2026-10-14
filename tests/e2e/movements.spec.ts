@@ -36,7 +36,7 @@ test('the authenticated session reaches the Data API through RLS', async ({ page
   expect(movements.length).toBeGreaterThan(0)
   expect(movements[0]).toMatchObject({
     id: expect.any(String),
-    type: expect.stringMatching(/^(expense|income|transfer)$/),
+    type: expect.stringMatching(/^(expense|income|transfer|savings)$/),
     label: expect.any(String),
     amount: expect.any(Number),
   })

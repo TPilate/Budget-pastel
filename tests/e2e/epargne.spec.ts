@@ -66,6 +66,12 @@ test('serves a coherent payload, with no NaN at zero income', async ({ page }) =
   }
 })
 
+// Local date, like the app's forms default to (toISOString would be the UTC date).
+function localToday(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
 test('a poche can be created and edited through its own form, moving the progress bar', async ({ page }) => {
   await openEpargne(page)
 
@@ -93,6 +99,9 @@ test('a poche can be created and edited through its own form, moving the progres
   // after it. The row already exists in the database by this point: it was created through
   // the real form above. Asserting on it outside the try would leave it behind on any
   // failure, which is the very thing this block exists to prevent.
+  // Savings are additive now (one row per versement), so the cleanup deletes the exact
+  // row this test posted instead of re-posting a zero.
+  let versementId: string | null = null
   try {
     expect(created).toBeTruthy()
     expect(created.monthlyAmount).toBe(25)
@@ -100,9 +109,11 @@ test('a poche can be created and edited through its own form, moving the progres
 
     // Give the poche a real balance: freshly created, it has none, and moving its objective
     // against a zero balance would leave the progress bar at 0 % either way, proving nothing.
-    await page.request.post('/api/savings', {
-      data: { savingsGoalId: created.id, year: payload.month.year, month: payload.month.month, amount: 300 },
+    const versement = await page.request.post('/api/savings', {
+      data: { savingsGoalId: created.id, date: localToday(), amount: 300 },
     })
+    expect(versement.status()).toBe(200)
+    versementId = (await versement.json()).id
     await page.reload()
     await expect(page.getByRole('heading', { name: 'Épargne' })).toBeVisible({ timeout: 15_000 })
     await page.waitForFunction(
@@ -157,11 +168,11 @@ test('a poche can be created and edited through its own form, moving the progres
     await expect(page.getByRole('heading', { name: 'Épargne' })).toBeVisible({ timeout: 15_000 })
   }
   finally {
-    // Neutralise rather than delete: zero the seeded savings entry (POST /api/savings
-    // upserts on goal/year/month, so re-posting amount: 0 overwrites the 300 € this test
-    // wrote), zero the poche's monthly contribution and clear its target so it cannot
-    // contribute to the page's headline figures, and rename it so a human scanning the
-    // list sees immediately that it is test residue rather than a real poche.
+    // Delete the 300 € versement this test posted (DELETE /api/savings/:id; 404 means it
+    // is already gone). The poche has no delete endpoint, so neutralise it: zero its monthly
+    // contribution and clear its target so it cannot contribute to the page's headline
+    // figures, and rename it so a human scanning the list sees immediately that it is test
+    // residue rather than a real poche.
     //
     // Re-resolve the id instead of trusting `created`: if the lookup above returned nothing,
     // dereferencing it here would throw a TypeError that masks the real assertion failure
@@ -169,10 +180,11 @@ test('a poche can be created and edited through its own form, moving the progres
     const goalId = created?.id ?? (await (await page.request.get('/api/savings-goals')).json())
       .find((goal: any) => goal.name === name)?.id
 
+    if (versementId) {
+      const removed = await page.request.delete(`/api/savings/${versementId}`)
+      expect([200, 404]).toContain(removed.status())
+    }
     if (goalId) {
-      await page.request.post('/api/savings', {
-        data: { savingsGoalId: goalId, year: payload.month.year, month: payload.month.month, amount: 0 },
-      })
       await page.request.patch(`/api/savings-goals/${goalId}`, {
         data: { name: `zz-e2e-${name}`, monthlyAmount: 0, targetAmount: null },
       })

@@ -11,7 +11,7 @@ interface EnvelopeCeiling {
 const emit = defineEmits<{ saved: [] }>()
 
 const route = useRoute()
-const initialMode = route.query.mode === 'transfer' ? 'transfer' : 'expense'
+const initialMode = route.query.mode === 'transfer' || route.query.mode === 'savings' ? route.query.mode : 'expense'
 const mode = ref<'expense' | 'income' | 'transfer' | 'savings'>(initialMode)
 
 const modeOptions = [
