@@ -118,6 +118,7 @@ describe('buildMovementsFeed', () => {
     })
     expect(movement.label).toBe('Transfert Budget du mois → 🏦 Livret LDDS')
     expect(movement.editable).toBe(true)
+    expect(movement).toMatchObject({ fromLabel: 'Budget du mois', toLabel: '🏦 Livret LDDS' })
   })
 
   it('closure transfers are read-only with origin Clôture', () => {

@@ -133,6 +133,8 @@ export function buildMovementsFeed(input: {
     amount: transfer.amount,
     sign: 'neutral',
     editable: monthOpen && transfer.source === 'manual',
+    fromLabel: transfer.fromLabel,
+    toLabel: transfer.toLabel,
     fields: transfer.fields,
   }))
 

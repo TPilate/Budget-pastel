@@ -80,6 +80,8 @@ async function remove() {
         :envelopes="reference.envelopes"
         :accounts="reference.accounts"
         :budget-libre="null"
+        :from-label="movement.fromLabel"
+        :to-label="movement.toLabel"
         :default-date="movement.date"
         :editing="{ id: movement.id, fields: movement.fields as TransferInput }"
         @saved="emit('done')"

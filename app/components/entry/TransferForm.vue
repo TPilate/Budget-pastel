@@ -23,12 +23,28 @@ const props = defineProps<{
   accounts: ReferenceItem[]
   budgetLibre: number | null
   defaultDate: string
+  fromLabel?: string
+  toLabel?: string
   editing?: { id: string, fields: TransferInput } | null
 }>()
 const initial = props.editing?.fields
 
 // Reserves are not offered: they move only through their own flows.
 const budgetEnvelopes = computed(() => props.envelopes.filter((envelope) => envelope.kind === 'budget'))
+
+// An endpoint of the transfer being edited can be gone from the lists (archived account):
+// it stays selectable under its own label so the select never renders blank.
+const listedKeys = computed(() => new Set([
+  'budget',
+  ...budgetEnvelopes.value.map((envelope) => `envelope:${envelope.id}`),
+  ...props.accounts.map((account) => `account:${account.id}`),
+]))
+function fallbackOption(endpoint: TransferEndpoint | undefined, label: string | undefined) {
+  if (!endpoint || !label || listedKeys.value.has(endpointKey(endpoint))) return null
+  return { value: endpointKey(endpoint), label: endpoint.kind === 'account' ? `${label} (archivé)` : label }
+}
+const fromFallback = computed(() => fallbackOption(initial?.from, props.fromLabel))
+const toFallback = computed(() => fallbackOption(initial?.to, props.toLabel))
 
 function parseKey(key: string): TransferEndpoint | null {
   if (key === 'budget') return { kind: 'budget' }
@@ -127,6 +143,7 @@ async function submit() {
     <div class="rounded-[22px] bg-white px-4">
       <EntryFormRow label="Retirer à">
         <select v-model="fromKey" class="bg-transparent text-right font-bold text-ink">
+          <option v-if="fromFallback" :value="fromFallback.value">{{ fromFallback.label }}</option>
           <option value="budget">Budget du mois</option>
           <optgroup v-if="budgetEnvelopes.length" label="Enveloppes">
             <option v-for="envelope in budgetEnvelopes" :key="envelope.id" :value="`envelope:${envelope.id}`">
@@ -142,6 +159,7 @@ async function submit() {
       </EntryFormRow>
       <EntryFormRow label="Verser à">
         <select v-model="toKey" class="bg-transparent text-right font-bold text-ink">
+          <option v-if="toFallback" :value="toFallback.value">{{ toFallback.label }}</option>
           <option value="budget">Budget du mois</option>
           <optgroup v-if="budgetEnvelopes.length" label="Enveloppes">
             <option v-for="envelope in budgetEnvelopes" :key="envelope.id" :value="`envelope:${envelope.id}`">
