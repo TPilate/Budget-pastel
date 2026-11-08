@@ -39,4 +39,17 @@ describe('fetchBudgetLibre', () => {
     // Without t1: unspent 280, envelope 130 → 150.
     expect(await fetchBudgetLibre(event, { year: 2026, month: 10 }, { excludeTransferId: 't1' })).toBe(150)
   })
+
+  it('excludes a Budget → envelope transfer from the envelope ledgers', async () => {
+    const t2 = { id: 't2', from_kind: 'budget', to_kind: 'envelope', from_account_id: null, to_account_id: null, from_envelope_id: null, to_envelope_id: 'e1', amount: '100.00' }
+    rows.transfers.push(t2)
+    try {
+      // e1 holds 130 + 100 = 230; unspent 280 - 150 = 130 → 130 - 230 = -100.
+      expect(await fetchBudgetLibre(event, { year: 2026, month: 10 })).toBe(-100)
+      // Without t2 the envelope is back to 130 → 0.
+      expect(await fetchBudgetLibre(event, { year: 2026, month: 10 }, { excludeTransferId: 't2' })).toBe(0)
+    } finally {
+      rows.transfers.pop()
+    }
+  })
 })
