@@ -71,10 +71,14 @@ export async function assertTransferEndpoints(event: H3Event, input: TransferInp
     }
   }
 
-  const keptAccounts = new Set([current?.fromAccountId, current?.toAccountId].filter(Boolean))
-  for (const id of accountIds) {
+  // An archived account is accepted only where the row already had it: same account, same side.
+  const keptAccount = (side: 'from' | 'to', id: string) =>
+    (side === 'from' ? current?.fromAccountId : current?.toAccountId) === id
+  for (const [side, endpoint] of [['from', input.from], ['to', input.to]] as const) {
+    if (endpoint.kind !== 'account') continue
+    const id = endpoint.accountId
     const account = accounts.find((a) => a.id === id)
-    if (!account || (account.archived_at && !keptAccounts.has(id))) {
+    if (!account || (account.archived_at && !keptAccount(side, id))) {
       throw userError(400, 'Account unavailable', "Ce compte n'est plus disponible.")
     }
   }

@@ -118,6 +118,22 @@ describe('transfer writes', () => {
     expect(db.calls.set[0]).toMatchObject({ toKind: 'account', toAccountId: 'a1' })
   })
 
+  it('refuses to move an archived account to the other side on edit', async () => {
+    state.accounts = [{ id: 'a1', archived_at: '2026-09-01T00:00:00Z' }]
+    state.current = { id: 't1', source: 'manual', yearAssigned: 2026, monthAssigned: 10, toKind: 'account', toAccountId: 'a1', fromKind: 'budget', fromAccountId: null }
+    state.input = { ...base, from: account('a1'), to: budget }
+    await expect(routes.patch(event())).rejects.toMatchObject({ statusCode: 400, data: { message: "Ce compte n'est plus disponible." } })
+    expect(db.calls.set).toHaveLength(0)
+  })
+
+  it('refuses to switch to a different archived account on edit', async () => {
+    state.accounts = [{ id: 'a1', archived_at: '2026-09-01T00:00:00Z' }, { id: 'a2', archived_at: '2026-09-02T00:00:00Z' }]
+    state.current = { id: 't1', source: 'manual', yearAssigned: 2026, monthAssigned: 10, toKind: 'account', toAccountId: 'a1', fromKind: 'budget', fromAccountId: null }
+    state.input = { ...base, from: budget, to: account('a2') }
+    await expect(routes.patch(event())).rejects.toMatchObject({ statusCode: 400, data: { message: "Ce compte n'est plus disponible." } })
+    expect(db.calls.set).toHaveLength(0)
+  })
+
   it('PATCH checks both months when the date moves', async () => {
     state.current = { id: 't1', source: 'manual', yearAssigned: 2026, monthAssigned: 10, fromKind: 'budget', toKind: 'account', toAccountId: 'a1' }
     state.input = { ...base, date: '2026-11-02', from: budget, to: account('a1') }
