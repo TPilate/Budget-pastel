@@ -167,6 +167,7 @@ export function buildReportLayout(s: ReportSnapshotV1): LayoutBlock[][] {
         { cells: ['Reporté sur le mois suivant', formatPdfEuro(s.closure.carriedOver)] },
         { cells: ["Versé à l'épargne", formatPdfEuro(s.closure.toSavings)] },
         { cells: ["Vers d'autres enveloppes", formatPdfEuro(s.closure.toOtherEnvelopes)] },
+        ...((s.closure.toAccounts ?? 0) > 0 ? [{ cells: ['Vers les comptes', formatPdfEuro(s.closure.toAccounts ?? 0)] }] : []),
         { cells: ['Dépassements déduits', formatPdfEuro(s.closure.overspendDeducted)] },
       ],
     },

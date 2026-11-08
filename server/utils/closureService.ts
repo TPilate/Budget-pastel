@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import { createError } from 'h3'
 import { createSupabaseServerClient } from './supabase'
-import { fetchClosureState, fetchMonthData, fetchArchives } from './closureQuery'
+import { fetchClosureState, fetchMonthData, fetchArchives, fetchActiveAccounts } from './closureQuery'
 import type { ArchiveRow } from './closureQuery'
 import {
   closureWindow, computeLeftovers, planClosure, ClosurePlanError,
@@ -27,6 +27,7 @@ export interface ClosurePagePayload {
   rule503020: Rule503020View | null
   savingsGoals: { id: string, name: string, receivesSalaryVariance: boolean }[]
   defaultSavingsGoalId: string | null
+  accounts: { id: string, name: string, emoji: string }[]
   archives: ArchiveRow[]
 }
 
@@ -53,11 +54,12 @@ export async function getClosurePage(event: H3Event, now: Date): Promise<Closure
       rule503020: null,
       savingsGoals: [],
       defaultSavingsGoalId: null,
+      accounts: [],
       archives,
     }
   }
 
-  const data = await fetchMonthData(event, closable)
+  const [data, accounts] = await Promise.all([fetchMonthData(event, closable), fetchActiveAccounts(event)])
   const { summary, rule503020 } = summariseMonth(data, { toSavings: 0, toAccounts: [] })
 
   return {
@@ -75,6 +77,7 @@ export async function getClosurePage(event: H3Event, now: Date): Promise<Closure
     rule503020,
     savingsGoals: data.savingsGoals,
     defaultSavingsGoalId: defaultSavingsGoalId(data.savingsGoals),
+    accounts,
     archives,
   }
 }
@@ -88,12 +91,14 @@ export async function closeMonth(event: H3Event, input: ClosureInput, now: Date)
   }
 
   // Leftovers are always recomputed here; the client only sends destinations.
-  const data = await fetchMonthData(event, closable)
+  const [data, accounts] = await Promise.all([fetchMonthData(event, closable), fetchActiveAccounts(event)])
   const leftovers = computeLeftovers(data)
 
   let plan
   try {
-    plan = planClosure({ leftovers, decisions: input.decisions, savingsGoalIds: data.savingsGoals.map((goal) => goal.id) })
+    plan = planClosure({ leftovers, decisions: input.decisions, savingsGoalIds: data.savingsGoals.map((goal) => goal.id),
+      accountIds: accounts.map((account) => account.id),
+    })
   }
   catch (error) {
     if (error instanceof ClosurePlanError) throw userError(400, 'Invalid closure', error.message)
@@ -112,6 +117,7 @@ export async function closeMonth(event: H3Event, input: ClosureInput, now: Date)
         nextAllocations: plan.nextAllocations,
         freezeAllocations: plan.freezeAllocations,
         savingsEntries: plan.savingsEntries,
+        accountTransfers: plan.accountTransfers,
         snapshot,
       },
     })

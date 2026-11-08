@@ -23,7 +23,8 @@ export interface ReportSnapshotV1 {
   transfers: { date: string, fromName: string, toName: string, reason: string | null, amount: number }[]
   envelopes: { name: string, emoji: string, ceiling: number, netSpent: number, leftover: number, destinationLabel: string | null }[]
   savings: { goalName: string, manual: number, fromClosure: number }[]
-  closure: ClosurePlan['totals']
+  /** `toAccounts` is absent from snapshots frozen before leftovers could go to an account. */
+  closure: Omit<ClosurePlan['totals'], 'toAccounts'> & { toAccounts?: number }
 }
 
 const sum = (rows: { amount: number }[]) => rows.reduce((total, row) => total + row.amount, 0)
@@ -100,10 +101,14 @@ export function buildReportSnapshot(input: {
     if (!decision) return null
     if (decision.destination === 'carry_over') return 'Reporté'
     if (decision.destination === 'savings') return `Épargne · ${goalName(decision.savingsGoalId)}`
+    if (decision.destination === 'account') {
+      const account = data.accounts.find((a) => a.id === decision.accountId)
+      return `Vers ${account ? `${account.emoji} ${account.name}` : 'un compte'}`
+    }
     return `Vers ${envelopeName(decision.targetEnvelopeId)}`
   }
 
-  const { summary, rule503020 } = summariseMonth(data, { toSavings: plan.totals.toSavings, toAccounts: [] })
+  const { summary, rule503020 } = summariseMonth(data, { toSavings: plan.totals.toSavings, toAccounts: plan.accountTransfers })
 
   return {
     version: 1,

@@ -1,15 +1,17 @@
-export type ClosureDestination = 'carry_over' | 'savings' | 'envelope'
+export type ClosureDestination = 'carry_over' | 'savings' | 'envelope' | 'account'
 
 export interface ClosureChoice {
   destination: ClosureDestination | null
   savingsGoalId: string | null
   targetEnvelopeId: string | null
+  accountId: string | null
 }
 
 export interface ClosureTotals {
   carried: number
   savings: number
   other: number
+  accounts: number
   unassigned: number
   /** Positive: the sum of the overspends deducted from next month's ceilings. */
   overspendDeducted: number
@@ -26,6 +28,7 @@ export function isClosureChoiceComplete(choice: ClosureChoice | undefined): bool
   if (!choice?.destination) return false
   if (choice.destination === 'savings') return Boolean(choice.savingsGoalId)
   if (choice.destination === 'envelope') return Boolean(choice.targetEnvelopeId)
+  if (choice.destination === 'account') return Boolean(choice.accountId)
   return true
 }
 
@@ -41,6 +44,7 @@ export function closureTotals(input: {
   let carried = 0
   let savings = 0
   let other = 0
+  let accounts = 0
   let unassigned = 0
   let overspendDeducted = 0
   const byGoal = new Map<string, number>()
@@ -59,6 +63,7 @@ export function closureTotals(input: {
       savings += envelope.leftover
       byGoal.set(choice.savingsGoalId!, (byGoal.get(choice.savingsGoalId!) ?? 0) + envelope.leftover)
     }
+    else if (choice.destination === 'account') accounts += envelope.leftover
     else other += envelope.leftover
   }
 
@@ -66,6 +71,7 @@ export function closureTotals(input: {
     carried: cents(carried),
     savings: cents(savings),
     other: cents(other),
+    accounts: cents(accounts),
     unassigned: cents(unassigned),
     overspendDeducted: cents(overspendDeducted),
     perGoal: input.savingsGoals

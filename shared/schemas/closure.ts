@@ -2,9 +2,10 @@ import { z } from 'zod'
 
 export const closureDecisionSchema = z.object({
   envelopeId: z.string().uuid(),
-  destination: z.enum(['carry_over', 'savings', 'envelope']),
+  destination: z.enum(['carry_over', 'savings', 'envelope', 'account']),
   savingsGoalId: z.string().uuid().nullable().optional(),
   targetEnvelopeId: z.string().uuid().nullable().optional(),
+  accountId: z.string().uuid().nullable().optional(),
 })
 
 export const closureInputSchema = z.object({

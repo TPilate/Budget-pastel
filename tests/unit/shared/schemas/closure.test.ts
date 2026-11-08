@@ -18,6 +18,12 @@ describe('closure schemas', () => {
     expect(closureInputSchema.safeParse({ year: 2026, month: 9, decisions: [{ envelopeId: uuid, destination: 'lost' }] }).success).toBe(false)
   })
 
+  it('accepts an account destination with an account id', () => {
+    const parsed = closureInputSchema.parse({ year: 2026, month: 9, decisions: [{ envelopeId: uuid, destination: 'account', accountId: uuid }] })
+    expect(parsed.decisions[0]).toMatchObject({ destination: 'account', accountId: uuid })
+    expect(closureInputSchema.safeParse({ year: 2026, month: 9, decisions: [{ envelopeId: uuid, destination: 'account', accountId: 'x' }] }).success).toBe(false)
+  })
+
   it('coerces route params', () => {
     expect(reportParamsSchema.parse({ year: '2026', month: '09' })).toEqual({ year: 2026, month: 9 })
     expect(reportParamsSchema.safeParse({ year: '2026', month: 'abc' }).success).toBe(false)

@@ -18,10 +18,10 @@ describe('closureTotals', () => {
         { id: 'bricolage', leftover: 0 },
       ],
       choices: {
-        sorties: { destination: 'savings', savingsGoalId: 'lt', targetEnvelopeId: null },
-        courses: { destination: 'savings', savingsGoalId: 'sec', targetEnvelopeId: null },
-        cadeaux: { destination: 'savings', savingsGoalId: 'lt', targetEnvelopeId: null },
-        loisirs: { destination: 'carry_over', savingsGoalId: null, targetEnvelopeId: null },
+        sorties: { destination: 'savings', savingsGoalId: 'lt', targetEnvelopeId: null, accountId: null },
+        courses: { destination: 'savings', savingsGoalId: 'sec', targetEnvelopeId: null, accountId: null },
+        cadeaux: { destination: 'savings', savingsGoalId: 'lt', targetEnvelopeId: null, accountId: null },
+        loisirs: { destination: 'carry_over', savingsGoalId: null, targetEnvelopeId: null, accountId: null },
       },
       savingsGoals: goals,
     })
@@ -29,6 +29,7 @@ describe('closureTotals', () => {
       carried: 5,
       savings: 76,
       other: 0,
+      accounts: 0,
       unassigned: 0,
       overspendDeducted: 12,
       perGoal: [
@@ -46,9 +47,9 @@ describe('closureTotals', () => {
         { id: 'c', leftover: 8 },
       ],
       choices: {
-        a: { destination: null, savingsGoalId: null, targetEnvelopeId: null },
-        b: { destination: 'envelope', savingsGoalId: null, targetEnvelopeId: null },
-        c: { destination: 'envelope', savingsGoalId: null, targetEnvelopeId: 'a' },
+        a: { destination: null, savingsGoalId: null, targetEnvelopeId: null, accountId: null },
+        b: { destination: 'envelope', savingsGoalId: null, targetEnvelopeId: null, accountId: null },
+        c: { destination: 'envelope', savingsGoalId: null, targetEnvelopeId: 'a', accountId: null },
       },
       savingsGoals: goals,
     })
@@ -61,12 +62,25 @@ describe('closureTotals', () => {
     const totals = closureTotals({
       envelopes: [{ id: 'a', leftover: 0.1 }, { id: 'b', leftover: 0.2 }, { id: 'c', leftover: -0.1 }, { id: 'd', leftover: -0.2 }],
       choices: {
-        a: { destination: 'carry_over', savingsGoalId: null, targetEnvelopeId: null },
-        b: { destination: 'carry_over', savingsGoalId: null, targetEnvelopeId: null },
+        a: { destination: 'carry_over', savingsGoalId: null, targetEnvelopeId: null, accountId: null },
+        b: { destination: 'carry_over', savingsGoalId: null, targetEnvelopeId: null, accountId: null },
       },
       savingsGoals: goals,
     })
     expect(totals.carried).toBe(0.3)
     expect(totals.overspendDeducted).toBe(0.3)
+  })
+
+  it('sums account choices into accounts and leaves the choice unassigned without an account', () => {
+    const totals = closureTotals({
+      envelopes: [{ id: 'a', leftover: 50 }, { id: 'b', leftover: 7 }],
+      choices: {
+        a: { destination: 'account', savingsGoalId: null, targetEnvelopeId: null, accountId: 'ldds' },
+        b: { destination: 'account', savingsGoalId: null, targetEnvelopeId: null, accountId: null },
+      },
+      savingsGoals: goals,
+    })
+    expect(totals.accounts).toBe(50)
+    expect(totals.unassigned).toBe(7)
   })
 })

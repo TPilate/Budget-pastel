@@ -132,6 +132,30 @@ describe('computeLeftovers', () => {
 describe('planClosure', () => {
   const goals = ['long-terme', 'vacances']
 
+  it('plans an account destination as a closure transfer', () => {
+    const plan = planClosure({
+      leftovers: [row('restaurants', 50)],
+      decisions: [{ envelopeId: 'restaurants', destination: 'account', accountId: 'a1' }],
+      savingsGoalIds: goals,
+      accountIds: ['a1'],
+    })
+    expect(plan.accountTransfers).toEqual([{ envelopeId: 'restaurants', accountId: 'a1', amount: 50 }])
+    expect(plan.totals.toAccounts).toBe(50)
+    expect(plan.nextAllocations[0].carriedOverAmount).toBe(0)
+    expect(plan.decisions[0]).toMatchObject({ destination: 'account', accountId: 'a1' })
+  })
+
+  it('refuses an unknown account', () => {
+    const plan = (accountId?: string) => () => planClosure({
+      leftovers: [row('restaurants', 50)],
+      decisions: [{ envelopeId: 'restaurants', destination: 'account', accountId }],
+      savingsGoalIds: goals,
+      accountIds: ['a1'],
+    })
+    expect(plan('nope')).toThrow('Choisissez un compte pour « restaurants ».')
+    expect(plan()).toThrow('Choisissez un compte pour « restaurants ».')
+  })
+
   it('routes each destination and builds next month allocations', () => {
     const plan = planClosure({
       leftovers: [
@@ -146,13 +170,13 @@ describe('planClosure', () => {
         { envelopeId: 'resto', destination: 'savings', savingsGoalId: 'long-terme' },
         { envelopeId: 'mode', destination: 'envelope', targetEnvelopeId: 'sorties' },
       ],
-      savingsGoalIds: goals,
+      savingsGoalIds: goals, accountIds: [],
     })
 
     expect(plan.decisions).toEqual([
-      { envelopeId: 'sorties', leftoverAmount: 26, destination: 'carry_over', savingsGoalId: null, targetEnvelopeId: null },
-      { envelopeId: 'resto', leftoverAmount: 40, destination: 'savings', savingsGoalId: 'long-terme', targetEnvelopeId: null },
-      { envelopeId: 'mode', leftoverAmount: 10, destination: 'envelope', savingsGoalId: null, targetEnvelopeId: 'sorties' },
+      { envelopeId: 'sorties', leftoverAmount: 26, destination: 'carry_over', savingsGoalId: null, targetEnvelopeId: null, accountId: null },
+      { envelopeId: 'resto', leftoverAmount: 40, destination: 'savings', savingsGoalId: 'long-terme', targetEnvelopeId: null, accountId: null },
+      { envelopeId: 'mode', leftoverAmount: 10, destination: 'envelope', savingsGoalId: null, targetEnvelopeId: 'sorties', accountId: null },
     ])
     expect(plan.nextAllocations).toEqual([
       // Its own 26 plus the 10 sent from Mode.
@@ -164,7 +188,7 @@ describe('planClosure', () => {
     ])
     expect(plan.freezeAllocations).toEqual([{ envelopeId: 'sport', baseCeiling: 25 }])
     expect(plan.savingsEntries).toEqual([{ savingsGoalId: 'long-terme', amount: 40 }])
-    expect(plan.totals).toEqual({ carriedOver: 26, toSavings: 40, toOtherEnvelopes: 10, overspendDeducted: 12 })
+    expect(plan.totals).toEqual({ carriedOver: 26, toSavings: 40, toOtherEnvelopes: 10, toAccounts: 0, overspendDeducted: 12 })
   })
 
   it('sums two leftovers sent to the same poche into one entry', () => {
@@ -174,7 +198,7 @@ describe('planClosure', () => {
         { envelopeId: 'a', destination: 'savings', savingsGoalId: 'vacances' },
         { envelopeId: 'b', destination: 'savings', savingsGoalId: 'vacances' },
       ],
-      savingsGoalIds: goals,
+      savingsGoalIds: goals, accountIds: [],
     })
     expect(plan.savingsEntries).toEqual([{ savingsGoalId: 'vacances', amount: 30.3 }])
   })
@@ -184,7 +208,7 @@ describe('planClosure', () => {
     const plan = planClosure({
       leftovers: [row('voyage', -12, { defaultCeiling: 0 }), row('mode', 10)],
       decisions: [{ envelopeId: 'mode', destination: 'envelope', targetEnvelopeId: 'voyage' }],
-      savingsGoalIds: goals,
+      savingsGoalIds: goals, accountIds: [],
     })
     expect(plan.nextAllocations[0]).toEqual({ envelopeId: 'voyage', baseCeiling: 0, carriedOverAmount: 10, overspendDeduction: 12 })
   })

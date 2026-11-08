@@ -99,7 +99,7 @@ describe('transfers to and from accounts in the report', () => {
       ],
     }
     const leftovers = computeLeftovers(example)
-    const plan = planClosure({ leftovers, decisions: [{ envelopeId: 'sorties', destination: 'carry_over' }], savingsGoalIds: [] })
+    const plan = planClosure({ leftovers, decisions: [{ envelopeId: 'sorties', destination: 'carry_over' }], savingsGoalIds: [], accountIds: [] })
     const snapshot = buildReportSnapshot({ data: example, leftovers, plan, closedAt: new Date('2026-10-13T08:00:00Z') })
     expect(snapshot.transfers.map((t) => [t.fromName, t.toName])).toEqual([
       ['Budget du mois', '🏦 LDDS'],
@@ -123,6 +123,7 @@ describe('buildReportSnapshot', () => {
       leftovers,
       decisions: [{ envelopeId: 'sorties', destination: 'savings', savingsGoalId: 'vac' }],
       savingsGoalIds: ['lt', 'vac'],
+      accountIds: [],
     })
     const snapshot = buildReportSnapshot({ data, leftovers, plan, closedAt: new Date('2026-10-13T08:00:00Z') })
 
@@ -142,7 +143,35 @@ describe('buildReportSnapshot', () => {
       { goalName: 'Long terme', manual: 200, fromClosure: 0 },
       { goalName: 'Vacances', manual: 0, fromClosure: 36 },
     ])
-    expect(snapshot.closure).toEqual({ carriedOver: 0, toSavings: 36, toOtherEnvelopes: 0, overspendDeducted: 12 })
+    expect(snapshot.closure).toEqual({ carriedOver: 0, toSavings: 36, toOtherEnvelopes: 0, toAccounts: 0, overspendDeducted: 12 })
+  })
+
+  it('labels an account destination', () => {
+    const leftovers = [
+      { envelopeId: 'sorties', name: 'Sorties', emoji: '🥂', defaultCeiling: 90, ceiling: 90, netSpent: 60, leftover: 30, hasAllocation: true },
+    ]
+    const plan = planClosure({
+      leftovers,
+      decisions: [{ envelopeId: 'sorties', destination: 'account', accountId: 'ldds' }],
+      savingsGoalIds: [],
+      accountIds: ['ldds'],
+    })
+    const snapshot = buildReportSnapshot({ data, leftovers, plan, closedAt: new Date('2026-10-13T08:00:00Z') })
+    expect(snapshot.envelopes[0].destinationLabel).toBe('Vers 🏦 LDDS')
+    expect(snapshot.closure.toAccounts).toBe(30)
+    // Sent to an épargne account: it counts as saved (200 manual + 30).
+    expect(snapshot.summary.saved).toBe(230)
+  })
+
+  it('counts an account destination of kind epargne in saved', () => {
+    const { summary } = summariseMonth(data, { toSavings: 0, toAccounts: [{ accountId: 'ldds', amount: 30 }] })
+    expect(summary.saved).toBe(230)
+  })
+
+  it('a PDF for a snapshot without closure.toAccounts still renders, and shows the line when present', () => {
+    const lines = (snapshot: typeof septemberSnapshot) => JSON.stringify(buildReportLayout(snapshot))
+    expect(lines(septemberSnapshot)).not.toContain('Vers les comptes')
+    expect(lines({ ...septemberSnapshot, closure: { ...septemberSnapshot.closure, toAccounts: 30 } })).toContain('Vers les comptes')
   })
 
   it('labels carry-overs and transfers to another envelope', () => {
@@ -158,6 +187,7 @@ describe('buildReportSnapshot', () => {
         { envelopeId: 'voyage', destination: 'envelope', targetEnvelopeId: 'sorties' },
       ],
       savingsGoalIds: [],
+      accountIds: [],
     })
     const snapshot = buildReportSnapshot({ data, leftovers, plan, closedAt: new Date('2026-10-13T08:00:00Z') })
     expect(snapshot.envelopes.map((e) => e.destinationLabel)).toEqual(['Reporté', 'Vers Sorties', null])

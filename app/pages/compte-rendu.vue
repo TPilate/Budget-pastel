@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type Destination = 'carry_over' | 'savings' | 'envelope'
+type Destination = 'carry_over' | 'savings' | 'envelope' | 'account'
 
 interface ClosureEnvelope { id: string, name: string, emoji: string, ceiling: number, netSpent: number, leftover: number }
 interface ClosurePagePayload {
@@ -13,9 +13,10 @@ interface ClosurePagePayload {
   } | null
   savingsGoals: { id: string, name: string, receivesSalaryVariance: boolean }[]
   defaultSavingsGoalId: string | null
+  accounts: { id: string, name: string, emoji: string }[]
   archives: { year: number, month: number, label: string, generatedAt: string }[]
 }
-interface Choice { destination: Destination | null, savingsGoalId: string | null, targetEnvelopeId: string | null }
+interface Choice { destination: Destination | null, savingsGoalId: string | null, targetEnvelopeId: string | null, accountId: string | null }
 
 const { data: closure, error, refresh } = useLazyFetch<ClosurePagePayload>('/api/closure', { key: 'closure' })
 
@@ -24,18 +25,19 @@ onMounted(() => {
   isHydrated.value = true
 })
 
-const destinationOptions = [
+const destinationOptions = computed(() => [
   { value: 'carry_over', label: 'Reporter' },
   { value: 'savings', label: 'Épargne' },
   { value: 'envelope', label: 'Enveloppe' },
-]
+  ...((closure.value?.accounts.length ?? 0) > 0 ? [{ value: 'account', label: 'Vers un compte' }] : []),
+])
 
 // Choices live only in the page: there is deliberately no persisted draft (spec §2).
 const choices = ref<Record<string, Choice>>({})
 watch(() => closure.value?.envelopes, (envelopes) => {
   choices.value = Object.fromEntries((envelopes ?? [])
     .filter((envelope) => envelope.leftover > 0)
-    .map((envelope) => [envelope.id, { destination: null, savingsGoalId: null, targetEnvelopeId: null }]))
+    .map((envelope) => [envelope.id, { destination: null, savingsGoalId: null, targetEnvelopeId: null, accountId: null }]))
 }, { immediate: true })
 
 const positive = computed(() => (closure.value?.envelopes ?? []).filter((e) => e.leftover > 0))
@@ -53,6 +55,7 @@ function applyToAll(destination: 'carry_over' | 'savings') {
       destination,
       savingsGoalId: destination === 'savings' ? closure.value?.defaultSavingsGoalId ?? null : null,
       targetEnvelopeId: null,
+      accountId: null,
     }
   }
 }
@@ -69,13 +72,19 @@ const canClose = computed(() => isHydrated.value && !isSubmitting.value
   && positive.value.every((envelope) => isClosureChoiceComplete(choices.value[envelope.id])))
 
 const envelopeName = (id: string | null) => closure.value?.envelopes.find((e) => e.id === id)?.name ?? ''
+const accountLabel = (id: string | null) => {
+  const account = closure.value?.accounts.find((a) => a.id === id)
+  return account ? `${account.emoji} ${account.name}` : ''
+}
 const goalName = (id: string | null) => closure.value?.savingsGoals.find((g) => g.id === id)?.name ?? ''
 
 const recap = computed(() => positive.value.map((envelope) => {
   const choice = choices.value[envelope.id]
   const destination = choice.destination === 'carry_over'
     ? `reporté sur ${closure.value?.closable?.nextMonthName}`
-    : choice.destination === 'savings' ? `vers ${goalName(choice.savingsGoalId)}` : `vers ${envelopeName(choice.targetEnvelopeId)}`
+    : choice.destination === 'savings' ? `vers ${goalName(choice.savingsGoalId)}`
+      : choice.destination === 'account' ? `vers ${accountLabel(choice.accountId)}`
+        : `vers ${envelopeName(choice.targetEnvelopeId)}`
   return { id: envelope.id, label: `${envelope.emoji} ${envelope.name}`, amount: envelope.leftover, destination }
 }))
 const overspent = computed(() => (closure.value?.envelopes ?? []).filter((e) => e.leftover < 0))
@@ -163,7 +172,7 @@ async function confirmClosure() {
             Chaque reliquat positif part vers une destination. Un dépassement est déduit automatiquement du plafond de {{ closure.closable.nextMonthName }}.
           </p>
 
-          <div class="grid grid-cols-2 gap-3 pt-4 sm:grid-cols-4">
+          <div class="grid grid-cols-2 gap-3 pt-4 sm:grid-cols-5">
             <div class="rounded-[14px] bg-app-bg p-3" data-testid="tile-carried">
               <p class="text-[11px] font-semibold text-ink-faint">Reporté sur {{ closure.closable.nextMonthName }}</p>
               <p class="pt-1 text-[17px] font-extrabold text-ink">{{ formatEuroShort(tiles.carried) }}</p>
@@ -175,6 +184,10 @@ async function confirmClosure() {
             <div class="rounded-[14px] bg-app-bg p-3" data-testid="tile-other">
               <p class="text-[11px] font-semibold text-ink-faint">Autre enveloppe</p>
               <p class="pt-1 text-[17px] font-extrabold text-ink">{{ formatEuroShort(tiles.other) }}</p>
+            </div>
+            <div class="rounded-[14px] bg-app-bg p-3" data-testid="tile-accounts">
+              <p class="text-[11px] font-semibold text-ink-faint">Vers les comptes</p>
+              <p class="pt-1 text-[17px] font-extrabold text-ink">{{ formatEuroShort(tiles.accounts) }}</p>
             </div>
             <div class="rounded-[14px] p-3" :class="tiles.unassigned > 0 ? 'bg-warn-bg' : 'bg-app-bg'">
               <p class="text-[11px] font-semibold text-ink-faint">Non réparti</p>
@@ -220,6 +233,15 @@ async function confirmClosure() {
                       class="rounded-[10px] bg-app-bg px-3 py-1.5 text-[12px] font-semibold text-ink"
                     >
                       <option v-for="goal in closure.savingsGoals" :key="goal.id" :value="goal.id">{{ goal.name }}</option>
+                    </select>
+                    <select
+                      v-if="choices[envelope.id]?.destination === 'account'"
+                      v-model="choices[envelope.id].accountId"
+                      :data-testid="`account-select-${envelope.id}`"
+                      class="rounded-[10px] bg-app-bg px-3 py-1.5 text-[12px] font-semibold text-ink"
+                    >
+                      <option :value="null" disabled>Choisir un compte</option>
+                      <option v-for="account in closure.accounts" :key="account.id" :value="account.id">{{ account.emoji }} {{ account.name }}</option>
                     </select>
                     <select
                       v-if="choices[envelope.id]?.destination === 'envelope'"
@@ -295,6 +317,10 @@ async function confirmClosure() {
           <li class="flex justify-between gap-4">
             <span class="font-semibold text-ink-muted">Vers d'autres enveloppes</span>
             <span class="font-extrabold text-ink">{{ formatEuro(tiles.other) }}</span>
+          </li>
+          <li class="flex justify-between gap-4">
+            <span class="font-semibold text-ink-muted">Vers les comptes</span>
+            <span class="font-extrabold text-ink">{{ formatEuro(tiles.accounts) }}</span>
           </li>
           <li class="flex justify-between gap-4">
             <span class="font-semibold text-ink-muted">Dépassements déduits</span>

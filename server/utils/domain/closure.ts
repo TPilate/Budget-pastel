@@ -178,13 +178,14 @@ export function computeLeftovers(data: MonthData): LeftoverRow[] {
     })
 }
 
-export type ClosureDestination = 'carry_over' | 'savings' | 'envelope'
+export type ClosureDestination = 'carry_over' | 'savings' | 'envelope' | 'account'
 
 export interface ClosureDecision {
   envelopeId: string
   destination: ClosureDestination
   savingsGoalId?: string | null
   targetEnvelopeId?: string | null
+  accountId?: string | null
 }
 
 export interface PlannedDecision {
@@ -193,6 +194,7 @@ export interface PlannedDecision {
   destination: ClosureDestination
   savingsGoalId: string | null
   targetEnvelopeId: string | null
+  accountId: string | null
 }
 
 export interface ClosurePlan {
@@ -203,7 +205,9 @@ export interface ClosurePlan {
   freezeAllocations: { envelopeId: string, baseCeiling: number }[]
   /** Dated month M, source 'closure'. */
   savingsEntries: { savingsGoalId: string, amount: number }[]
-  totals: { carriedOver: number, toSavings: number, toOtherEnvelopes: number, overspendDeducted: number }
+  /** Envelope → account transfers dated the last day of month M, source 'closure'. */
+  accountTransfers: { envelopeId: string, accountId: string, amount: number }[]
+  totals: { carriedOver: number, toSavings: number, toOtherEnvelopes: number, toAccounts: number, overspendDeducted: number }
 }
 
 export class ClosurePlanError extends Error {
@@ -217,9 +221,12 @@ export function planClosure(input: {
   leftovers: LeftoverRow[]
   decisions: ClosureDecision[]
   savingsGoalIds: string[]
+  /** Active accounts only. */
+  accountIds: string[]
 }): ClosurePlan {
   const rowsById = new Map(input.leftovers.map((row) => [row.envelopeId, row]))
   const goalIds = new Set(input.savingsGoalIds)
+  const accountIds = new Set(input.accountIds)
   const seen = new Set<string>()
   const decisions: PlannedDecision[] = []
 
@@ -242,12 +249,17 @@ export function planClosure(input: {
       }
     }
 
+    if (decision.destination === 'account' && !(decision.accountId && accountIds.has(decision.accountId))) {
+      throw new ClosurePlanError(`Choisissez un compte pour « ${row.name} ».`)
+    }
+
     decisions.push({
       envelopeId: row.envelopeId,
       leftoverAmount: row.leftover,
       destination: decision.destination,
       savingsGoalId: decision.destination === 'savings' ? decision.savingsGoalId! : null,
       targetEnvelopeId: decision.destination === 'envelope' ? decision.targetEnvelopeId! : null,
+      accountId: decision.destination === 'account' ? decision.accountId! : null,
     })
   }
 
@@ -257,7 +269,8 @@ export function planClosure(input: {
 
   const carried = new Map<string, number>()
   const savings = new Map<string, number>()
-  const totals = { carriedOver: 0, toSavings: 0, toOtherEnvelopes: 0, overspendDeducted: 0 }
+  const accountTransfers: ClosurePlan['accountTransfers'] = []
+  const totals = { carriedOver: 0, toSavings: 0, toOtherEnvelopes: 0, toAccounts: 0, overspendDeducted: 0 }
   const add = (map: Map<string, number>, id: string, amount: number) => map.set(id, (map.get(id) ?? 0) + amount)
 
   for (const decision of decisions) {
@@ -268,6 +281,10 @@ export function planClosure(input: {
     else if (decision.destination === 'envelope') {
       add(carried, decision.targetEnvelopeId!, decision.leftoverAmount)
       totals.toOtherEnvelopes += decision.leftoverAmount
+    }
+    else if (decision.destination === 'account') {
+      accountTransfers.push({ envelopeId: decision.envelopeId, accountId: decision.accountId!, amount: decision.leftoverAmount })
+      totals.toAccounts += decision.leftoverAmount
     }
     else {
       add(savings, decision.savingsGoalId!, decision.leftoverAmount)
@@ -296,10 +313,12 @@ export function planClosure(input: {
       .filter((row) => !row.hasAllocation)
       .map((row) => ({ envelopeId: row.envelopeId, baseCeiling: row.defaultCeiling })),
     savingsEntries: [...savings].map(([savingsGoalId, amount]) => ({ savingsGoalId, amount: toCents(amount) })),
+    accountTransfers,
     totals: {
       carriedOver: toCents(totals.carriedOver),
       toSavings: toCents(totals.toSavings),
       toOtherEnvelopes: toCents(totals.toOtherEnvelopes),
+      toAccounts: toCents(totals.toAccounts),
       overspendDeducted: toCents(totals.overspendDeducted),
     },
   }

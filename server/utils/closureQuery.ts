@@ -180,6 +180,18 @@ export async function fetchMonthData(event: H3Event, { year, month }: YearMonth)
   }
 }
 
+export async function fetchActiveAccounts(event: H3Event): Promise<{ id: string, name: string, emoji: string }[]> {
+  const supabase = createSupabaseServerClient(event)
+  const { data, error } = await supabase
+    .from('accounts')
+    .select('id,name,emoji')
+    .is('archived_at', null)
+    .order('sort_order')
+    .abortSignal(AbortSignal.timeout(REQUEST_TIMEOUT_MS))
+  assertOk('accounts', error)
+  return (data ?? []).map((row: any) => ({ id: row.id, name: row.name, emoji: row.emoji }))
+}
+
 export interface ArchiveRow { year: number, month: number, label: string, generatedAt: string }
 
 export async function fetchArchives(event: H3Event): Promise<ArchiveRow[]> {

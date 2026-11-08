@@ -1,6 +1,6 @@
 import { pgTable, uuid, integer, timestamp, numeric, text, jsonb, uniqueIndex } from 'drizzle-orm/pg-core'
 import { closureStatusEnum, closureDestinationEnum } from './enums'
-import { envelopes, savingsGoals } from './reference'
+import { envelopes, savingsGoals, accounts } from './reference'
 
 export const monthClosures = pgTable('month_closures', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -20,6 +20,7 @@ export const closureEnvelopeDecisions = pgTable('closure_envelope_decisions', {
   destination: closureDestinationEnum('destination').notNull(),
   destinationSavingsGoalId: uuid('destination_savings_goal_id').references(() => savingsGoals.id),
   destinationEnvelopeId: uuid('destination_envelope_id').references(() => envelopes.id),
+  destinationAccountId: uuid('destination_account_id').references(() => accounts.id),
 })
 
 export const monthlyReports = pgTable('monthly_reports', {

@@ -29,6 +29,7 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.15",
     "@playwright/test": "^1.48.0",
     "@types/pdfkit": "^0.17.6",
     "dotenv": "^16.4.0",

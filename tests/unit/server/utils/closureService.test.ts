@@ -5,6 +5,7 @@ const q = vi.hoisted(() => ({
   fetchClosureState: vi.fn(),
   fetchMonthData: vi.fn(),
   fetchArchives: vi.fn(),
+  fetchActiveAccounts: vi.fn(),
 }))
 vi.mock('../../../../server/utils/closureQuery', () => q)
 
@@ -48,6 +49,7 @@ describe('closureService', () => {
     q.fetchClosureState.mockResolvedValue({ firstDataMonth: SEPT, closedMonths: [] })
     q.fetchMonthData.mockResolvedValue(septemberData)
     q.fetchArchives.mockResolvedValue([])
+    q.fetchActiveAccounts.mockResolvedValue([{ id: 'ldds', name: 'LDDS', emoji: '🏦' }])
     q.fetchMonthData.mockClear()
     rpc.calls.length = 0
     rpc.result = { data: 'closure-id', error: null }
@@ -98,7 +100,27 @@ describe('closureService', () => {
     ])
     expect(payload.freezeAllocations).toHaveLength(2)
     expect(payload.snapshot.version).toBe(1)
-    expect(payload.snapshot.closure).toEqual({ carriedOver: 26, toSavings: 0, toOtherEnvelopes: 0, overspendDeducted: 12 })
+    expect(payload.snapshot.closure).toEqual({ carriedOver: 26, toSavings: 0, toOtherEnvelopes: 0, toAccounts: 0, overspendDeducted: 12 })
+    expect(payload.accountTransfers).toEqual([])
+  })
+
+  it('sends the closure transfers to an active account, and refuses an unknown one', async () => {
+    await closeMonth(event, {
+      year: 2026, month: 9, decisions: [{ envelopeId: 'sorties', destination: 'account', accountId: 'ldds' }],
+    }, NOW)
+    const [, { payload }] = rpc.calls[0]
+    expect(payload.accountTransfers).toEqual([{ envelopeId: 'sorties', accountId: 'ldds', amount: 26 }])
+    expect(payload.decisions[0]).toMatchObject({ destination: 'account', accountId: 'ldds' })
+
+    rpc.calls.length = 0
+    await expect(closeMonth(event, {
+      year: 2026, month: 9, decisions: [{ envelopeId: 'sorties', destination: 'account', accountId: 'archived' }],
+    }, NOW)).rejects.toMatchObject({ statusCode: 400 })
+    expect(rpc.calls).toHaveLength(0)
+  })
+
+  it('lists the active accounts on the page', async () => {
+    expect((await getClosurePage(event, NOW)).accounts).toEqual([{ id: 'ldds', name: 'LDDS', emoji: '🏦' }])
   })
 
   it('refuses a month that is not the closable one, before any write', async () => {
