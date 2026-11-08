@@ -1,4 +1,5 @@
 import type { H3Event } from 'h3'
+import type { TransferEndpoint } from '../../shared/schemas/transfer'
 import { createError } from 'h3'
 import { createSupabaseServerClient } from './supabase'
 import { buildMovementsFeed } from './domain/movementsFeed'
@@ -37,9 +38,11 @@ const INCOME_SELECT
 // ambiguous and PostgREST answers 300 (PGRST201). Each side is disambiguated by
 // foreign-key name and aliased so the direction is explicit at the call site.
 const TRANSFER_SELECT
-  = 'id,date,reason,amount,from_envelope_id,to_envelope_id,'
+  = 'id,date,reason,amount,from_kind,to_kind,from_account_id,to_account_id,source,from_envelope_id,to_envelope_id,'
   + 'from_envelope:envelopes!from_envelope_id(name),'
-  + 'to_envelope:envelopes!to_envelope_id(name)'
+  + 'to_envelope:envelopes!to_envelope_id(name),'
+  + 'from_account:accounts!from_account_id(name,emoji),'
+  + 'to_account:accounts!to_account_id(name,emoji)'
 
 // savings_entries has one foreign key to savings_goals.
 const SAVINGS_SELECT = 'id,date,year,month,amount,source,savings_goal_id,savings_goals(name)'
@@ -162,16 +165,30 @@ async function fetchFeed(
     }
   })
 
-  const transferMovements = (transferRes.data ?? []).map((row: any) => ({
-    id: row.id,
-    date: row.date,
-    reason: row.reason,
-    amount: Number(row.amount),
-    fromEnvelopeName: unwrap(row.from_envelope)?.name ?? '?',
-    toEnvelopeName: unwrap(row.to_envelope)?.name ?? '?',
-    fromEnvelopeId: row.from_envelope_id,
-    toEnvelopeId: row.to_envelope_id,
-  }))
+  const transferMovements = (transferRes.data ?? []).map((row: any) => {
+    const side = (kind: string, envelope: unknown, account: unknown, envelopeId: string | null, accountId: string | null): { label: string, endpoint: TransferEndpoint } => {
+      if (kind === 'budget') return { label: 'Budget du mois', endpoint: { kind: 'budget' } }
+      if (kind === 'account') {
+        const embed = unwrap(account) as { name?: string, emoji?: string } | null
+        return { label: embed ? `${embed.emoji ?? ''} ${embed.name ?? '?'}`.trim() : '?', endpoint: { kind: 'account', accountId: accountId as string } }
+      }
+      return { label: (unwrap(envelope) as { name?: string } | null)?.name ?? '?', endpoint: { kind: 'envelope', envelopeId: envelopeId as string } }
+    }
+    // Rows from before the wider transfers have no kind: they were envelope to envelope.
+    const from = side(row.from_kind ?? 'envelope', row.from_envelope, row.from_account, row.from_envelope_id, row.from_account_id)
+    const to = side(row.to_kind ?? 'envelope', row.to_envelope, row.to_account, row.to_envelope_id, row.to_account_id)
+    const amount = Number(row.amount)
+    return {
+      id: row.id,
+      date: row.date,
+      reason: row.reason,
+      amount,
+      fromLabel: from.label,
+      toLabel: to.label,
+      source: (row.source ?? 'manual') as 'manual' | 'closure',
+      fields: { from: from.endpoint, to: to.endpoint, amount, reason: row.reason, date: row.date },
+    }
+  })
 
   const savings = (savingsRes.data ?? []).map((row: any) => ({
     id: row.id,

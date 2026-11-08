@@ -9,7 +9,7 @@ interface ReferenceItem { id: string, name: string, emoji: string, requiresDetai
 interface EntryReferenceData {
   categories: ReferenceItem[]
   accounts: ReferenceItem[]
-  envelopes: ReferenceItem[]
+  envelopes: (ReferenceItem & { kind: 'budget' | 'reserve' })[]
   incomeTypes: ReferenceItem[]
   savingsGoals: { id: string, name: string }[]
 }
@@ -78,6 +78,9 @@ async function remove() {
       <TransferForm
         v-else-if="movement.type === 'transfer'"
         :envelopes="reference.envelopes"
+        :accounts="reference.accounts"
+        :budget-libre="null"
+        :default-date="movement.date"
         :editing="{ id: movement.id, fields: movement.fields as TransferInput }"
         @saved="emit('done')"
       />

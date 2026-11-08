@@ -97,13 +97,41 @@ describe('buildMovementsFeed', () => {
       incomes: [],
       transfers: [{
         id: 't1', date: '2026-09-19', reason: 'rééquilibrage', amount: 20,
-        fromEnvelopeName: 'Mode', toEnvelopeName: 'Restaurants',
+        fromLabel: 'Mode', toLabel: 'Restaurants', source: 'manual',
+        fields: { from: { kind: 'envelope', envelopeId: '11111111-1111-4111-8111-111111111111' }, to: { kind: 'envelope', envelopeId: '22222222-2222-4222-8222-222222222222' }, amount: 20, reason: 'rééquilibrage', date: '2026-09-19' },
       }],
     })
     expect(movement).toMatchObject({
       id: 't1', type: 'transfer', date: '2026-09-19', label: 'Transfert Mode → Restaurants',
-      envelopeLabel: '⇄ deux enveloppes', origin: 'rééquilibrage', amount: 20, sign: 'neutral',
+      envelopeLabel: '⇄ Transfert', origin: 'rééquilibrage', amount: 20, sign: 'neutral',
     })
+  })
+
+  it('labels budget and account sides', () => {
+    const [movement] = buildMovementsFeed({
+      expenses: [], incomes: [],
+      transfers: [{
+        id: 't2', date: '2026-09-20', reason: 'épargne', amount: 30,
+        fromLabel: 'Budget du mois', toLabel: '🏦 Livret LDDS', source: 'manual',
+        fields: { from: { kind: 'budget' }, to: { kind: 'account', accountId: '22222222-2222-4222-8222-222222222222' }, amount: 30, reason: 'épargne', date: '2026-09-20' },
+      }],
+    })
+    expect(movement.label).toBe('Transfert Budget du mois → 🏦 Livret LDDS')
+    expect(movement.editable).toBe(true)
+  })
+
+  it('closure transfers are read-only with origin Clôture', () => {
+    const [movement] = buildMovementsFeed({
+      expenses: [], incomes: [],
+      transfers: [{
+        id: 't3', date: '2026-09-30', reason: 'Clôture', amount: 12,
+        fromLabel: 'Budget du mois', toLabel: 'Mode', source: 'closure',
+        fields: { from: { kind: 'budget' }, to: { kind: 'envelope', envelopeId: '11111111-1111-4111-8111-111111111111' }, amount: 12, reason: 'Clôture', date: '2026-09-30' },
+      }],
+      monthOpen: true,
+    })
+    expect(movement.origin).toBe('Clôture')
+    expect(movement.editable).toBe(false)
   })
 
   it('sorts all movements by date descending, mixing types', () => {
@@ -119,7 +147,8 @@ describe('buildMovementsFeed', () => {
       }],
       transfers: [{
         id: 't1', date: '2026-09-19', reason: 'rééquilibrage', amount: 20,
-        fromEnvelopeName: 'Mode', toEnvelopeName: 'Restaurants',
+        fromLabel: 'Mode', toLabel: 'Restaurants', source: 'manual',
+        fields: { from: { kind: 'envelope', envelopeId: '11111111-1111-4111-8111-111111111111' }, to: { kind: 'envelope', envelopeId: '22222222-2222-4222-8222-222222222222' }, amount: 20, reason: 'rééquilibrage', date: '2026-09-19' },
       }],
     })
     expect(movements.map((m) => m.id)).toEqual(['t1', 'i1', 'e1'])

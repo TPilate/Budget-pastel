@@ -4,11 +4,11 @@ import type { Movement } from '~~/shared/types/movement'
 interface EntryReferenceData {
   categories: { id: string, name: string, emoji: string, requiresDetailsText?: boolean }[]
   accounts: { id: string, name: string, emoji: string }[]
-  envelopes: { id: string, name: string, emoji: string }[]
+  envelopes: { id: string, name: string, emoji: string, kind: 'budget' | 'reserve' }[]
   incomeTypes: { id: string, name: string, emoji: string, requiresDetailsText?: boolean }[]
   savingsGoals: { id: string, name: string }[]
 }
-interface MouvementsPage { movements: Movement[], reference: EntryReferenceData }
+interface MouvementsPage { movements: Movement[], budgetLibre: number | null, reference: EntryReferenceData }
 
 const { data: page, error } = useLazyFetch<MouvementsPage>('/api/pages/mouvements', { key: 'page-mouvements' })
 const data = computed(() => page.value?.movements ?? null)
@@ -176,7 +176,7 @@ function formatDate(isoDate: string) {
       </div>
     </div>
 
-    <EntryPanel :reference-data="page?.reference ?? null" :reference-error="Boolean(error)" />
+    <EntryPanel :reference-data="page?.reference ?? null" :reference-error="Boolean(error)" :budget-libre="page?.budgetLibre ?? null" />
 
     <DetailDrawer v-model:open="drawerOpen" :title="selected?.label ?? ''">
       <MovementEditor

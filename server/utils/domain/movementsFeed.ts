@@ -1,4 +1,5 @@
 import type { Movement } from '../../../shared/types/movement'
+import type { TransferInput } from '../../../shared/schemas/transfer'
 
 export type { Movement } from '../../../shared/types/movement'
 
@@ -39,10 +40,10 @@ export interface RawTransferMovement {
   date: string
   reason: string
   amount: number
-  fromEnvelopeName: string
-  toEnvelopeName: string
-  fromEnvelopeId: string
-  toEnvelopeId: string
+  fromLabel: string
+  toLabel: string
+  source: 'manual' | 'closure'
+  fields: TransferInput
 }
 
 export interface RawSavingsMovement {
@@ -126,18 +127,13 @@ export function buildMovementsFeed(input: {
     id: transfer.id,
     type: 'transfer',
     date: transfer.date,
-    label: `Transfert ${transfer.fromEnvelopeName} → ${transfer.toEnvelopeName}`,
-    envelopeLabel: '⇄ deux enveloppes',
-    origin: transfer.reason,
+    label: `Transfert ${transfer.fromLabel} → ${transfer.toLabel}`,
+    envelopeLabel: '⇄ Transfert',
+    origin: transfer.source === 'closure' ? 'Clôture' : transfer.reason,
     amount: transfer.amount,
     sign: 'neutral',
-    editable: monthOpen,
-    fields: {
-      fromEnvelopeId: transfer.fromEnvelopeId,
-      toEnvelopeId: transfer.toEnvelopeId,
-      amount: transfer.amount,
-      reason: transfer.reason,
-    },
+    editable: monthOpen && transfer.source === 'manual',
+    fields: transfer.fields,
   }))
 
   const savingsMovements: Movement[] = (input.savings ?? []).map((entry) => {

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { TransferEndpoint } from '~~/shared/schemas/transfer'
+
 interface EnvelopeCeiling {
   id: string
   name: string
@@ -27,11 +29,12 @@ interface ReferenceItem {
   emoji: string
   requiresDetailsText?: boolean
 }
+type EnvelopeItem = ReferenceItem & { kind: 'budget' | 'reserve' }
 
 interface EntryReferenceData {
   categories: ReferenceItem[]
   accounts: ReferenceItem[]
-  envelopes: ReferenceItem[]
+  envelopes: EnvelopeItem[]
   incomeTypes: ReferenceItem[]
   savingsGoals: { id: string, name: string }[]
 }
@@ -39,6 +42,7 @@ interface EntryReferenceData {
 const props = defineProps<{
   referenceData: EntryReferenceData | null
   referenceError: boolean
+  budgetLibre?: number | null
 }>()
 
 // The sidebar widget already loads the ceilings under this key on every page; reading the
@@ -60,8 +64,8 @@ const savingsGoals = computed(() => referenceData.value?.savingsGoals ?? [])
 const draftAmount = ref(0)
 const draftExpenseEnvelopeId = ref('')
 const draftIncomeEnvelopeId = ref('')
-const draftTransferFromId = ref('')
-const draftTransferToId = ref('')
+const draftTransferFrom = ref<TransferEndpoint | null>(null)
+const draftTransferTo = ref<TransferEndpoint | null>(null)
 
 interface PreviewLine {
   label: string
@@ -74,13 +78,14 @@ const previewLines = computed<PreviewLine[]>(() => {
   if (mode.value === 'savings') return []
 
   if (mode.value === 'transfer') {
-    const from = ceilingsById.value.get(draftTransferFromId.value)
-    const to = ceilingsById.value.get(draftTransferToId.value)
-    if (!from || !to || draftAmount.value <= 0) return []
-    return [
-      { label: `Retirer à ${from.emoji} ${from.name}`, before: from.ceiling, after: from.ceiling - draftAmount.value, suffix: 'plafond' },
-      { label: `Ajouter à ${to.emoji} ${to.name}`, before: to.ceiling, after: to.ceiling + draftAmount.value, suffix: 'plafond' },
-    ]
+    if (draftAmount.value <= 0) return []
+    // Preview lines exist for envelope sides only; the budget and accounts have no ceiling.
+    const lines: PreviewLine[] = []
+    const from = draftTransferFrom.value?.kind === 'envelope' ? ceilingsById.value.get(draftTransferFrom.value.envelopeId) : undefined
+    const to = draftTransferTo.value?.kind === 'envelope' ? ceilingsById.value.get(draftTransferTo.value.envelopeId) : undefined
+    if (from) lines.push({ label: `Retirer à ${from.emoji} ${from.name}`, before: from.ceiling, after: from.ceiling - draftAmount.value, suffix: 'plafond' })
+    if (to) lines.push({ label: `Verser à ${to.emoji} ${to.name}`, before: to.ceiling, after: to.ceiling + draftAmount.value, suffix: 'plafond' })
+    return lines
   }
 
   const envelopeId = mode.value === 'expense' ? draftExpenseEnvelopeId.value : draftIncomeEnvelopeId.value
@@ -96,8 +101,8 @@ function handleSaved() {
   draftAmount.value = 0
   draftExpenseEnvelopeId.value = ''
   draftIncomeEnvelopeId.value = ''
-  draftTransferFromId.value = ''
-  draftTransferToId.value = ''
+  draftTransferFrom.value = null
+  draftTransferTo.value = null
   emit('saved')
 }
 </script>
@@ -132,10 +137,13 @@ function handleSaved() {
       <TransferForm
         v-else-if="mode === 'transfer'"
         :envelopes="envelopes"
+        :accounts="accounts"
+        :budget-libre="budgetLibre ?? null"
+        :default-date="todayLocalIso()"
         @saved="handleSaved"
         @amount-change="draftAmount = $event"
-        @from-envelope-change="draftTransferFromId = $event"
-        @to-envelope-change="draftTransferToId = $event"
+        @from-change="draftTransferFrom = $event"
+        @to-change="draftTransferTo = $event"
       />
       <SavingsForm
         v-else

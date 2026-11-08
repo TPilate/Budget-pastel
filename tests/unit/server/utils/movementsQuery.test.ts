@@ -166,6 +166,11 @@ describe('fetchMovements (Supabase Data API)', () => {
         date: '2026-09-10',
         reason: 'Rééquilibrage',
         amount: 50,
+        from_kind: 'envelope',
+        to_kind: 'envelope',
+        source: 'manual',
+        from_envelope_id: 'e-loisirs',
+        to_envelope_id: 'e-courses',
         from_envelope: { name: 'Loisirs' },
         to_envelope: { name: 'Courses' },
       }],
@@ -186,6 +191,39 @@ describe('fetchMovements (Supabase Data API)', () => {
     })
   })
 
+  it('maps an account side and a budget side into endpoints and labels', async () => {
+    mocks.responseByTable.transfers = {
+      data: [{
+        id: 't9',
+        date: '2026-09-11',
+        reason: 'Épargne',
+        amount: 25,
+        from_kind: 'budget',
+        to_kind: 'account',
+        source: 'manual',
+        from_envelope_id: null,
+        to_envelope_id: null,
+        from_account_id: null,
+        to_account_id: 'acc-1',
+        from_envelope: null,
+        to_envelope: null,
+        from_account: null,
+        to_account: { name: 'Livret LDDS', emoji: '🏦' },
+      }],
+      error: null,
+    }
+
+    const [movement] = await fetchMovements(fakeEvent(), 2026, 9)
+
+    expect(movement.label).toBe('Transfert Budget du mois → 🏦 Livret LDDS')
+    expect(movement.fields).toMatchObject({
+      from: { kind: 'budget' },
+      to: { kind: 'account', accountId: 'acc-1' },
+      amount: 25,
+      date: '2026-09-11',
+    })
+  })
+
   it('asks PostgREST to resolve the joins rather than fetching reference tables separately', async () => {
     await fetchMovements(fakeEvent(), 2026, 9)
 
@@ -196,6 +234,8 @@ describe('fetchMovements (Supabase Data API)', () => {
     expect(mocks.selectCalls.expense_entries).toContain('accounts(')
     expect(mocks.selectCalls.transfers).toContain('envelopes!from_envelope_id')
     expect(mocks.selectCalls.transfers).toContain('envelopes!to_envelope_id')
+    expect(mocks.selectCalls.transfers).toContain('accounts!from_account_id(name,emoji)')
+    expect(mocks.selectCalls.transfers).toContain('accounts!to_account_id(name,emoji)')
   })
 
   it('bounds every request with an abort signal so a stalled fetch cannot hang the handler', async () => {
