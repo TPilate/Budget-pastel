@@ -92,6 +92,13 @@
       "when": 1794104139184,
       "tag": "0012_close_month_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794105220079,
+      "tag": "0013_reopen_month",
+      "breakpoints": true
     }
   ]
 }
