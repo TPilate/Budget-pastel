@@ -20,7 +20,7 @@ const initial = props.editing?.fields
 
 const envelopes = computed(() => props.envelopes)
 
-const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInput(initial ? amountToBuffer(initial.amount) : '0')
+const { displayValue, amount, pressDigit, pressComma, backspace, reset } = useAmountInput(initial ? amountToBuffer(initial.amount) : '0')
 
 const fromEnvelopeId = ref(initial?.fromEnvelopeId ?? envelopes.value[0]?.id ?? '')
 const toEnvelopeId = ref(initial?.toEnvelopeId ?? envelopes.value[1]?.id ?? '')
@@ -57,6 +57,13 @@ async function submit() {
         reason: reason.value,
       },
     })
+    // Back to the initial state so the same transfer cannot be saved twice by accident.
+    if (!props.editing) {
+      reset()
+      reason.value = ''
+      fromEnvelopeId.value = envelopes.value[0]?.id ?? ''
+      toEnvelopeId.value = envelopes.value[1]?.id ?? ''
+    }
     emit('saved')
   } catch (error) {
     errorMessage.value = apiErrorMessage(error) ?? 'Impossible de valider le transfert. Vérifiez les champs et réessayez.'

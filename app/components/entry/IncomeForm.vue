@@ -23,7 +23,7 @@ const initial = props.editing?.fields
 const incomeTypes = computed(() => props.incomeTypes)
 const envelopes = computed(() => props.envelopes)
 
-const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInput(initial ? amountToBuffer(initial.amount) : '0')
+const { displayValue, amount, pressDigit, pressComma, backspace, reset } = useAmountInput(initial ? amountToBuffer(initial.amount) : '0')
 
 const incomeTypeId = ref(initial?.incomeTypeId ?? incomeTypes.value[0]?.id ?? '')
 const label = ref(initial?.label ?? '')
@@ -66,6 +66,14 @@ async function submit() {
         targetEnvelopeId: targetEnvelopeId.value || null,
       },
     })
+    // A fresh entry starts empty, so the same one cannot be saved twice by accident. Date,
+    // type and month are kept for the next entry.
+    if (!props.editing) {
+      reset()
+      label.value = ''
+      detailsText.value = ''
+      targetEnvelopeId.value = ''
+    }
     emit('saved')
   } catch (error) {
     errorMessage.value = apiErrorMessage(error) ?? "Impossible d'enregistrer l'entrée. Vérifiez les champs et réessayez."

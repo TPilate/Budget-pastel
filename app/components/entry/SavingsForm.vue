@@ -14,7 +14,7 @@ const props = defineProps<{
 }>()
 
 const initial = props.editing?.fields
-const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInput(initial ? amountToBuffer(initial.amount) : '0')
+const { displayValue, amount, pressDigit, pressComma, backspace, reset } = useAmountInput(initial ? amountToBuffer(initial.amount) : '0')
 
 const savingsGoalId = ref(initial?.savingsGoalId ?? props.goals[0]?.id ?? '')
 const date = ref(initial?.date ?? todayLocalIso())
@@ -37,6 +37,7 @@ async function submit() {
       method: props.editing ? 'PATCH' : 'POST',
       body: { savingsGoalId: savingsGoalId.value, date: date.value, amount: amount.value },
     })
+    if (!props.editing) reset()
     emit('saved')
   } catch (error) {
     errorMessage.value = apiErrorMessage(error) ?? "Impossible d'enregistrer le versement. Vérifiez les champs et réessayez."

@@ -24,7 +24,7 @@ const categories = computed(() => props.categories)
 const accounts = computed(() => props.accounts)
 const envelopes = computed(() => props.envelopes)
 
-const { displayValue, amount, pressDigit, pressComma, backspace } = useAmountInput(initial ? amountToBuffer(initial.amount) : '0')
+const { displayValue, amount, pressDigit, pressComma, backspace, reset } = useAmountInput(initial ? amountToBuffer(initial.amount) : '0')
 
 const categoryId = ref(initial?.categoryId ?? categories.value[0]?.id ?? '')
 const label = ref(initial?.label ?? '')
@@ -72,6 +72,13 @@ async function submit() {
         financedBy: financedBy.value,
       },
     })
+    // A fresh entry starts empty, so the same one cannot be saved twice by accident. Date,
+    // category, account and "financé par" are kept for the next entry.
+    if (!props.editing) {
+      reset()
+      label.value = ''
+      envelopeId.value = ''
+    }
     emit('saved')
   } catch (error) {
     errorMessage.value = apiErrorMessage(error) ?? "Impossible d'enregistrer la sortie. Vérifiez les champs et réessayez."
