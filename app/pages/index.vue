@@ -109,12 +109,12 @@ function shortDate(isoDate: string) {
       <template #actions>
         <NuxtLink
           v-if="closureStatus?.closableMonth"
-          to="/compte-rendu"
+          :to="{ path: '/compte-rendu', query: { ...selectedMonth.query.value } }"
           class="rounded-[12px] border border-divider bg-white px-4 py-2 text-[12.5px] font-bold text-ink"
         >
           Clôturer {{ closureStatus.closableMonth.name }}
         </NuxtLink>
-        <NuxtLink to="/mouvements" class="rounded-[12px] bg-primary px-4 py-2 text-[12.5px] font-bold text-primary-ink">
+        <NuxtLink :to="{ path: '/mouvements', query: { ...selectedMonth.query.value } }" class="rounded-[12px] bg-primary px-4 py-2 text-[12.5px] font-bold text-primary-ink">
           + Nouvelle saisie
         </NuxtLink>
       </template>
@@ -166,7 +166,7 @@ function shortDate(isoDate: string) {
 
           <p v-if="!hasIncome" class="pt-4 text-[12.5px] text-ink-faint">
             Aucun revenu enregistré ce mois-ci. Ajoutez une entrée pour voir la répartition.
-            <NuxtLink to="/mouvements" class="font-bold text-ink underline">Saisir un revenu</NuxtLink>
+            <NuxtLink :to="{ path: '/mouvements', query: { ...selectedMonth.query.value } }" class="font-bold text-ink underline">Saisir un revenu</NuxtLink>
           </p>
 
           <div v-else class="flex flex-col items-center gap-6 pt-4 sm:flex-row sm:items-center">
@@ -254,7 +254,7 @@ function shortDate(isoDate: string) {
         <section class="rounded-[18px] border border-divider bg-white p-5">
           <header class="flex items-baseline justify-between">
             <h2 class="text-[13.5px] font-extrabold text-ink">Derniers mouvements</h2>
-            <NuxtLink to="/mouvements" class="text-[11.5px] font-bold text-ink-muted">Tout voir</NuxtLink>
+            <NuxtLink :to="{ path: '/mouvements', query: { ...selectedMonth.query.value } }" class="text-[11.5px] font-bold text-ink-muted">Tout voir</NuxtLink>
           </header>
           <p v-if="!dashboard.recentMovements.length" class="pt-3 text-[12.5px] text-ink-faint">
             Aucun mouvement ce mois-ci.
@@ -283,7 +283,7 @@ function shortDate(isoDate: string) {
             </li>
           </ul>
 
-          <NuxtLink to="/mouvements?mode=savings" class="mt-3 block text-[11.5px] font-bold text-ink-muted">Ajouter un versement →</NuxtLink>
+          <NuxtLink :to="{ path: '/mouvements', query: { ...selectedMonth.query.value, ...{ mode: 'savings' } } }" class="mt-3 block text-[11.5px] font-bold text-ink-muted">Ajouter un versement →</NuxtLink>
         </section>
 
         <section v-for="reserve in dashboard.reserves" :key="reserve.id" class="rounded-[18px] border border-divider bg-app-bg p-5">

@@ -217,7 +217,7 @@ async function createPoche() {
 
           <p v-if="!hasIncome" class="pt-3 text-[12.5px] text-ink-faint">
             Aucun revenu enregistré ce mois-ci.
-            <NuxtLink to="/mouvements" class="font-bold text-ink underline">Saisir un revenu</NuxtLink>
+            <NuxtLink :to="{ path: '/mouvements', query: { ...selectedMonth.query.value } }" class="font-bold text-ink underline">Saisir un revenu</NuxtLink>
           </p>
 
           <template v-else>

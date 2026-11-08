@@ -57,7 +57,7 @@ const hasNoRecordedBalances = computed(() => {
   <div class="flex flex-col gap-5">
     <PageHeader title="Comptes" :month-context="monthContext">
       <template #actions>
-        <NuxtLink to="/parametres" class="rounded-[12px] border border-divider bg-white px-4 py-2 text-[12.5px] font-bold text-ink">
+        <NuxtLink :to="{ path: '/parametres', query: { ...selectedMonth.query.value } }" class="rounded-[12px] border border-divider bg-white px-4 py-2 text-[12.5px] font-bold text-ink">
           Modifier les comptes
         </NuxtLink>
       </template>

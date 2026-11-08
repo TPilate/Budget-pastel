@@ -122,10 +122,10 @@ function formatDate(isoDate: string) {
   <div class="flex flex-col gap-5">
     <PageHeader title="Enveloppes" :month-context="monthContext">
       <template #actions>
-        <NuxtLink to="/parametres" class="rounded-[12px] border border-divider bg-white px-4 py-2 text-[12.5px] font-bold text-ink">
+        <NuxtLink :to="{ path: '/parametres', query: { ...selectedMonth.query.value } }" class="rounded-[12px] border border-divider bg-white px-4 py-2 text-[12.5px] font-bold text-ink">
           Modifier les plafonds
         </NuxtLink>
-        <NuxtLink to="/mouvements?mode=transfer" class="rounded-[12px] bg-primary px-4 py-2 text-[12.5px] font-bold text-primary-ink">
+        <NuxtLink :to="{ path: '/mouvements', query: { ...selectedMonth.query.value, ...{ mode: 'transfer' } } }" class="rounded-[12px] bg-primary px-4 py-2 text-[12.5px] font-bold text-primary-ink">
           ⇄ Transférer
         </NuxtLink>
       </template>

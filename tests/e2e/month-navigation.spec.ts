@@ -21,7 +21,7 @@ async function open(page: Page, path: string) {
   await page.evaluate((target) => (document.querySelector('#__nuxt') as any).__vue_app__.config.globalProperties.$router.push(target), path)
   const response = await loaded
   await expect(page.getByRole('status')).toHaveCount(0, { timeout: 15_000 })
-  return response.json() as Promise<{ monthContext: { selected: { label: string }, latestClosed: { year: number, month: number } | null } }>
+  return response.json() as Promise<{ monthContext: { selected: { label: string }, latestClosed: { year: number, month: number } | null, current: { year: number, month: number }, firstDataMonth: { year: number, month: number } | null } }>
 }
 
 test('the selected month survives navigation and reload', async ({ page }) => {
@@ -65,4 +65,17 @@ test('"Revenir au mois en cours" drops the parameter', async ({ page }) => {
   await page.getByRole('button', { name: 'Revenir au mois en cours' }).click()
   await expect(page).not.toHaveURL(/mois=/)
   await expect(page.getByRole('button', { name: 'Revenir au mois en cours' })).toHaveCount(0)
+})
+
+test('two quick clicks on the previous arrow goes back two months', async ({ page }) => {
+  const { monthContext } = await open(page, '/mouvements')
+  const { current, firstDataMonth } = monthContext
+  const index = (ym: { year: number, month: number }) => ym.year * 12 + ym.month
+  test.skip(!firstDataMonth || index(current) - index(firstDataMonth) < 2, 'Needs two months with data before the current one')
+  const target = index(current) - 2 - 1 // zero-based month index
+  const expected = `${Math.floor(target / 12)}-${String((target % 12) + 1).padStart(2, '0')}`
+  const arrow = page.getByRole('button', { name: 'Mois précédent' })
+  await arrow.click({ noWaitAfter: true })
+  await arrow.click({ noWaitAfter: true })
+  await expect(page).toHaveURL(new RegExp(`mois=${expected}`))
 })
