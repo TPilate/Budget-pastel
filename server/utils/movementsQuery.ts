@@ -6,6 +6,7 @@ import { buildMovementsFeed } from './domain/movementsFeed'
 import type { Movement } from './domain/movementsFeed'
 import { fetchLatestClosedMonth } from './monthLock'
 import { isMonthOpen } from './domain/closure'
+import { transferSideLabel } from './domain/transferLabels'
 
 // This module deliberately does NOT import ./db. It reads through Supabase's Data
 // API (PostgREST) over stateless HTTPS, so there is no connection pool to exhaust
@@ -167,12 +168,11 @@ async function fetchFeed(
 
   const transferMovements = (transferRes.data ?? []).map((row: any) => {
     const side = (kind: string, envelope: unknown, account: unknown, envelopeId: string | null, accountId: string | null): { label: string, endpoint: TransferEndpoint } => {
-      if (kind === 'budget') return { label: 'Budget du mois', endpoint: { kind: 'budget' } }
+      if (kind === 'budget') return { label: transferSideLabel(kind, null), endpoint: { kind: 'budget' } }
       if (kind === 'account') {
-        const embed = unwrap(account) as { name?: string, emoji?: string } | null
-        return { label: embed ? `${embed.emoji ?? ''} ${embed.name ?? '?'}`.trim() : '?', endpoint: { kind: 'account', accountId: accountId as string } }
+        return { label: transferSideLabel(kind, unwrap(account) as { name?: string, emoji?: string } | null), endpoint: { kind: 'account', accountId: accountId as string } }
       }
-      return { label: (unwrap(envelope) as { name?: string } | null)?.name ?? '?', endpoint: { kind: 'envelope', envelopeId: envelopeId as string } }
+      return { label: transferSideLabel(kind, unwrap(envelope) as { name?: string } | null), endpoint: { kind: 'envelope', envelopeId: envelopeId as string } }
     }
     // Rows from before the wider transfers have no kind: they were envelope to envelope.
     const from = side(row.from_kind ?? 'envelope', row.from_envelope, row.from_account, row.from_envelope_id, row.from_account_id)

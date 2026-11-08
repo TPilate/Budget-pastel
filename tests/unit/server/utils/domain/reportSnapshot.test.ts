@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { buildReportLayout } from '../../../../../server/utils/reportLayout'
+import { septemberSnapshot } from '../../../fixtures/reportSnapshot'
 import { summariseMonth, buildReportSnapshot } from '../../../../../server/utils/domain/reportSnapshot'
 import { computeLeftovers, planClosure } from '../../../../../server/utils/domain/closure'
 import type { MonthData } from '../../../../../server/utils/domain/closure'
@@ -24,6 +26,10 @@ const data: MonthData = {
     { date: '2026-09-15', label: 'Coline', amount: 10, expectedAmount: null, targetEnvelopeId: 'sorties', typeName: 'Remboursement', typeEmoji: '🔁' },
   ],
   transfers: [],
+  accounts: [
+    { id: 'ldds', name: 'LDDS', emoji: '🏦', kind: 'epargne' },
+    { id: 'cc', name: 'Compte courant', emoji: '💳', kind: 'courant' },
+  ],
   savingsEntries: [{ savingsGoalId: 'lt', amount: 200, source: 'manual' }],
   savingsGoals: [
     { id: 'lt', name: 'Long terme', receivesSalaryVariance: true },
@@ -31,9 +37,11 @@ const data: MonthData = {
   ],
 }
 
+const none = { toSavings: 0, toAccounts: [] }
+
 describe('summariseMonth', () => {
   it('excludes reimbursements from income and gift-funded spend from spending', () => {
-    const { summary, rule503020 } = summariseMonth(data, 0)
+    const { summary, rule503020 } = summariseMonth(data, none)
     // Income: 2000 (the 10 € reimbursement credits Sorties instead).
     // Spent: 650 + 64 + 12 = 726 (the 30 € gift-received spend is not budget money).
     // Saved: 200 manual. Remaining: 2000 − 726 − 200 = 1074.
@@ -45,7 +53,65 @@ describe('summariseMonth', () => {
   })
 
   it('counts closure savings on top of manual savings', () => {
-    expect(summariseMonth(data, 36).summary).toEqual({ income: 2000, spent: 726, saved: 236, remaining: 1038 })
+    expect(summariseMonth(data, { toSavings: 36, toAccounts: [] }).summary).toEqual({ income: 2000, spent: 726, saved: 236, remaining: 1038 })
+  })
+})
+
+const transfer = (over: Partial<MonthData['transfers'][number]>): MonthData['transfers'][number] => ({
+  date: '2026-09-05', fromKind: 'budget', toKind: 'account', fromEnvelopeId: null, toEnvelopeId: null,
+  fromAccountId: null, toAccountId: null, amount: 0, reason: '', source: 'manual', ...over,
+})
+
+describe('transfers to and from accounts in the report', () => {
+  it('report saved includes net épargne-account transfers', () => {
+    // Income 2000, spent 1770, nothing in the poches; Budget → LDDS 150.
+    const example: MonthData = {
+      ...data,
+      expenses: [{ ...data.expenses[0], amount: 1770 }],
+      savingsEntries: [],
+      transfers: [transfer({ toAccountId: 'ldds', amount: 150 })],
+    }
+    const { summary, rule503020 } = summariseMonth(example, none)
+    // Saved 150; remaining = 2000 − 1770 − 0 + 0 − 150 (leaving) = 80.
+    expect(summary).toEqual({ income: 2000, spent: 1770, saved: 150, remaining: 80 })
+    expect(rule503020.actuals.epargne).toBe(8)
+  })
+
+  it('counts the closure leftovers sent to an account like a transfer from an envelope', () => {
+    const { summary } = summariseMonth(data, { toSavings: 0, toAccounts: [{ accountId: 'ldds', amount: 36 }] })
+    // 2000 − 726 − 200 manual − 0 + 0 − 36 = 1038; saved 200 + 36.
+    expect(summary).toMatchObject({ saved: 236, remaining: 1038 })
+  })
+
+  it('money coming back from an épargne account lowers saved and raises remaining', () => {
+    const example: MonthData = { ...data, transfers: [transfer({ fromKind: 'account', toKind: 'budget', fromAccountId: 'ldds', amount: 50 })] }
+    // saved 200 − 50 = 150; remaining 2000 − 726 − 200 + 50 = 1124.
+    expect(summariseMonth(example, none).summary).toMatchObject({ saved: 150, remaining: 1124 })
+  })
+
+  it('names budget and account sides in the transfer list', () => {
+    const example: MonthData = {
+      ...data,
+      transfers: [
+        transfer({ toAccountId: 'ldds', amount: 150, reason: 'épargne' }),
+        transfer({ fromKind: 'account', fromAccountId: 'cc', toKind: 'envelope', toEnvelopeId: 'sorties', amount: 20 }),
+        transfer({ fromKind: 'envelope', fromEnvelopeId: 'voyage', toKind: 'budget', amount: 5 }),
+      ],
+    }
+    const leftovers = computeLeftovers(example)
+    const plan = planClosure({ leftovers, decisions: [{ envelopeId: 'sorties', destination: 'carry_over' }], savingsGoalIds: [] })
+    const snapshot = buildReportSnapshot({ data: example, leftovers, plan, closedAt: new Date('2026-10-13T08:00:00Z') })
+    expect(snapshot.transfers.map((t) => [t.fromName, t.toName])).toEqual([
+      ['Budget du mois', '🏦 LDDS'],
+      ['💳 Compte courant', 'Sorties'],
+      ['Voyage', 'Budget du mois'],
+    ])
+  })
+
+  it('an old V1 snapshot fixture still builds the PDF layout', () => {
+    const pages = buildReportLayout(septemberSnapshot)
+    expect(pages).toHaveLength(2)
+    expect(pages[0][0]).toMatchObject({ kind: 'title', text: 'Compte rendu — Septembre 2026' })
   })
 })
 

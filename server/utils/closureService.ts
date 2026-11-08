@@ -58,7 +58,7 @@ export async function getClosurePage(event: H3Event, now: Date): Promise<Closure
   }
 
   const data = await fetchMonthData(event, closable)
-  const { summary, rule503020 } = summariseMonth(data, 0)
+  const { summary, rule503020 } = summariseMonth(data, { toSavings: 0, toAccounts: [] })
 
   return {
     closable: { ...closable, label: monthLabel(closable), nextMonthName: monthName(nextYearMonth(closable).month) },

@@ -13,7 +13,7 @@ export interface PocheView extends PocheInput {
 }
 
 export interface ContributionRow {
-  kind: 'contribution' | 'variance' | 'closure'
+  kind: 'contribution' | 'variance' | 'closure' | 'account'
   label: string
   detail: string
   amount: number
@@ -112,6 +112,8 @@ export function monthContributions(input: {
   closureEntries?: { savingsGoalId: string, amount: number, source?: 'manual' | 'closure' }[]
   /** Lower-case name of the closed month, e.g. "septembre". */
   closureMonthName?: string
+  /** Épargne accounts with a non-zero net transfer this month (closure transfers included). */
+  accounts?: { name: string, emoji: string, amount: number }[]
   poches: { id: string, name: string, receivesSalaryVariance: boolean }[]
   salaryVariance: number
 }): ContributionRow[] {
@@ -123,6 +125,11 @@ export function monthContributions(input: {
   const contributed = input.entries.filter((entry) => !isClosure(entry)).reduce((sum, entry) => sum + entry.amount, 0)
   if (contributed !== 0) {
     rows.push({ kind: 'contribution', label: 'Versement du mois', detail: 'réparti sur les poches', amount: contributed })
+  }
+
+  for (const account of input.accounts ?? []) {
+    if (account.amount === 0) continue
+    rows.push({ kind: 'account', label: `${account.emoji} ${account.name}`.trim(), detail: 'transferts du mois', amount: account.amount })
   }
 
   const fromClosure = (input.closureEntries ?? []).filter(isClosure).reduce((sum, entry) => sum + entry.amount, 0)

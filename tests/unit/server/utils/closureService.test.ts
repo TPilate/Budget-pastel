@@ -38,6 +38,7 @@ const septemberData: MonthData = {
   ],
   incomes: [],
   transfers: [],
+  accounts: [],
   savingsEntries: [],
   savingsGoals: [{ id: 'lt', name: 'Long terme', receivesSalaryVariance: true }],
 }

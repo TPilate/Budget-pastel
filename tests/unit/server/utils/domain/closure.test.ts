@@ -10,7 +10,7 @@ const SEPT = { year: 2026, month: 9 }
 function monthData(over: Partial<MonthData> = {}): MonthData {
   return {
     month: SEPT,
-    envelopes: [], allocations: [], expenses: [], incomes: [], transfers: [],
+    envelopes: [], allocations: [], expenses: [], incomes: [], transfers: [], accounts: [],
     savingsEntries: [], savingsGoals: [],
     ...over,
   }

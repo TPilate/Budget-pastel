@@ -67,7 +67,7 @@ export async function fetchMonthData(event: H3Event, { year, month }: YearMonth)
   const supabase = createSupabaseServerClient(event)
   const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
 
-  const [envelopesRes, allocationsRes, expensesRes, incomesRes, transfersRes, savingsRes, goalsRes] = await Promise.all([
+  const [envelopesRes, allocationsRes, expensesRes, incomesRes, transfersRes, savingsRes, goalsRes, accountsRes] = await Promise.all([
     supabase.from('envelopes')
       .select('id,name,emoji,kind,default_ceiling,fifty_thirty_twenty_bucket,archived_at')
       .order('sort_order').abortSignal(signal),
@@ -81,7 +81,7 @@ export async function fetchMonthData(event: H3Event, { year, month }: YearMonth)
       .select('date_received,label,amount,expected_amount,target_envelope_id,income_types(name,emoji)')
       .eq('year_assigned', year).eq('month_assigned', month).order('date_received').abortSignal(signal),
     supabase.from('transfers')
-      .select('date,from_envelope_id,to_envelope_id,amount,reason')
+      .select('date,from_kind,to_kind,from_envelope_id,to_envelope_id,from_account_id,to_account_id,amount,reason,source')
       .eq('year_assigned', year).eq('month_assigned', month).order('date').abortSignal(signal),
     supabase.from('savings_entries')
       .select('savings_goal_id,amount,source')
@@ -89,6 +89,7 @@ export async function fetchMonthData(event: H3Event, { year, month }: YearMonth)
     supabase.from('savings_goals')
       .select('id,name,receives_salary_variance')
       .order('sort_order').abortSignal(signal),
+    supabase.from('accounts').select('id,name,emoji,kind').abortSignal(signal),
   ])
 
   assertOk('envelopes', envelopesRes.error)
@@ -98,6 +99,7 @@ export async function fetchMonthData(event: H3Event, { year, month }: YearMonth)
   assertOk('transfers', transfersRes.error)
   assertOk('savings_entries', savingsRes.error)
   assertOk('savings_goals', goalsRes.error)
+  assertOk('accounts', accountsRes.error)
 
   return {
     month: { year, month },
@@ -148,10 +150,22 @@ export async function fetchMonthData(event: H3Event, { year, month }: YearMonth)
     }),
     transfers: (transfersRes.data ?? []).map((row: any) => ({
       date: row.date,
-      fromEnvelopeId: row.from_envelope_id,
-      toEnvelopeId: row.to_envelope_id,
+      // Rows from before the wider transfers have no kind: they were envelope to envelope.
+      fromKind: row.from_kind ?? 'envelope',
+      toKind: row.to_kind ?? 'envelope',
+      fromEnvelopeId: row.from_envelope_id ?? null,
+      toEnvelopeId: row.to_envelope_id ?? null,
+      fromAccountId: row.from_account_id ?? null,
+      toAccountId: row.to_account_id ?? null,
       amount: Number(row.amount),
       reason: row.reason,
+      source: (row.source ?? 'manual') as 'manual' | 'closure',
+    })),
+    accounts: (accountsRes.data ?? []).map((row: any) => ({
+      id: row.id,
+      name: row.name,
+      emoji: row.emoji,
+      kind: row.kind,
     })),
     savingsEntries: (savingsRes.data ?? []).map((row: any) => ({
       savingsGoalId: row.savings_goal_id,

@@ -204,6 +204,20 @@ describe('monthContributions', () => {
     ])
   })
 
+  it('lists an épargne account as its own contribution row', () => {
+    const rows = monthContributions({
+      entries: [{ savingsGoalId: 'a', amount: 100, source: 'manual' }],
+      accounts: [{ name: 'LDDS', emoji: '🏦', amount: 150 }, { name: 'Livret A', emoji: '🐖', amount: -20 }],
+      poches: [],
+      salaryVariance: 0,
+    })
+    expect(rows).toEqual([
+      { kind: 'contribution', label: 'Versement du mois', detail: 'réparti sur les poches', amount: 100 },
+      { kind: 'account', label: '🏦 LDDS', detail: 'transferts du mois', amount: 150 },
+      { kind: 'account', label: '🐖 Livret A', detail: 'transferts du mois', amount: -20 },
+    ])
+  })
+
   it('never counts a closure entry of the shown month as a versement', () => {
     const rows = monthContributions({
       entries: [{ savingsGoalId: 'a', amount: 26, source: 'closure' }],

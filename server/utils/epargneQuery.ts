@@ -13,6 +13,8 @@ import { summariseIncome, compute503020 } from './domain/dashboard'
 import type { Bucket5030 } from './domain/dashboard'
 import { summariseFixedCharges } from './domain/accountsOverview'
 import { monthName } from './domain/closure'
+import { summariseMonthTransfers, netByEpargneAccount } from './domain/transferFlows'
+import type { TransferFlow } from './domain/transferFlows'
 
 // This route is deliberately Data-API only. It must never import listBudgetEnvelopeLedgers
 // or listReserveEnvelopeBalances: those hold pool slots, and the pool-wait queue has no
@@ -24,6 +26,7 @@ const EXPENSE_SELECT
   = 'amount,envelope_id,financed_by,'
   + 'categories(is_fixed,fifty_thirty_twenty_bucket),'
   + 'envelopes(fifty_thirty_twenty_bucket)'
+const TRANSFERS_SELECT = 'year_assigned,month_assigned,from_kind,to_kind,from_account_id,to_account_id,amount'
 const FIXED_CATEGORIES_SELECT = 'id,name,default_target'
 
 const REQUEST_TIMEOUT_MS = 10000
@@ -72,7 +75,7 @@ export async function fetchEpargne(
   const supabase = createSupabaseServerClient(event)
   const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
 
-  const [goalsRes, entriesRes, incomeRes, expenseRes, fixedRes] = await Promise.all([
+  const [goalsRes, entriesRes, incomeRes, expenseRes, fixedRes, transfersRes, accountsRes] = await Promise.all([
     supabase.from('savings_goals').select(GOALS_SELECT).order('sort_order').abortSignal(signal),
     // All time, not just this month: a poche's balance is a running total.
     supabase.from('savings_entries').select(ENTRIES_SELECT).abortSignal(signal),
@@ -82,6 +85,11 @@ export async function fetchEpargne(
       .eq('year_assigned', year).eq('month_assigned', month).abortSignal(signal),
     supabase.from('categories').select(FIXED_CATEGORIES_SELECT)
       .eq('is_fixed', true).is('archived_at', null).order('sort_order').abortSignal(signal),
+    // Money sent to or taken from an account: only these can change the savings. All time,
+    // like the entries, because the history reads back several months.
+    supabase.from('transfers').select(TRANSFERS_SELECT)
+      .or('from_kind.eq.account,to_kind.eq.account').abortSignal(signal),
+    supabase.from('accounts').select('id,name,emoji,kind').abortSignal(signal),
   ])
 
   assertOk('savings_goals', goalsRes.error)
@@ -89,6 +97,8 @@ export async function fetchEpargne(
   assertOk('income_entries', incomeRes.error)
   assertOk('expense_entries', expenseRes.error)
   assertOk('categories', fixedRes.error)
+  assertOk('transfers', transfersRes.error)
+  assertOk('accounts', accountsRes.error)
 
   const allEntries = (entriesRes.data ?? []).map((row: any) => ({
     savingsGoalId: row.savings_goal_id,
@@ -124,7 +134,35 @@ export async function fetchEpargne(
   const previous = month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 }
   const previousClosureEntries = allEntries.filter((entry) =>
     entry.year === previous.year && entry.month === previous.month && entry.source === 'closure')
+
+  const accounts = (accountsRes.data ?? []) as any[]
+  const accountKinds = new Map<string, 'courant' | 'epargne'>(accounts.map((row) => [row.id, row.kind]))
+  const transfersByMonth = new Map<string, { year: number, month: number, flows: TransferFlow[] }>()
+  for (const row of (transfersRes.data ?? []) as any[]) {
+    const key = `${row.year_assigned}-${row.month_assigned}`
+    const bucket = transfersByMonth.get(key) ?? { year: row.year_assigned, month: row.month_assigned, flows: [] as TransferFlow[] }
+    bucket.flows.push({
+      fromKind: row.from_kind,
+      toKind: row.to_kind,
+      fromAccountId: row.from_account_id ?? null,
+      toAccountId: row.to_account_id ?? null,
+      amount: Number(row.amount),
+    })
+    transfersByMonth.set(key, bucket)
+  }
+  // Net épargne-account transfers behave like savings entries dated in their month.
+  const accountSavingsByMonth = [...transfersByMonth.values()].map(({ year, month, flows }) => {
+    const t = summariseMonthTransfers(flows, accountKinds)
+    return { year, month, amount: t.toSavingsAccounts - t.fromSavingsAccounts }
+  })
+  const shownMonthFlows = transfersByMonth.get(`${year}-${month}`)?.flows ?? []
+  const netByAccount = netByEpargneAccount(shownMonthFlows, accountKinds)
+  const accountContributions = accounts
+    .filter((row) => (netByAccount.get(row.id) ?? 0) !== 0)
+    .map((row) => ({ name: row.name as string, emoji: row.emoji as string, amount: netByAccount.get(row.id)! }))
+
   const savedThisMonth = monthEntries.reduce((sum, entry) => sum + entry.amount, 0)
+    + (accountSavingsByMonth.find((m) => m.year === year && m.month === month)?.amount ?? 0)
 
   const taggedSpend = expenseRows
     .filter((row) => row.financed_by !== 'gift_received')
@@ -163,7 +201,7 @@ export async function fetchEpargne(
       monthly: totalMonthly,
       monthsOfChargesCovered: monthsOfChargesCovered(totalBalance, fixedCharges.total),
     },
-    history: monthlyHistory(allEntries, { year, month }, historyMonths),
+    history: monthlyHistory([...allEntries, ...accountSavingsByMonth], { year, month }, historyMonths),
     ruleOfThumb: {
       targets: ruleOfThumb.targets,
       actuals: ruleOfThumb.actuals,
@@ -175,6 +213,7 @@ export async function fetchEpargne(
     },
     contributions: monthContributions({
       entries: monthEntries,
+      accounts: accountContributions,
       closureEntries: previousClosureEntries,
       closureMonthName: monthName(previous.month),
       poches,

@@ -61,8 +61,10 @@ describe('closureQuery', () => {
       { date_received: '2026-09-28', label: 'Salaire', amount: '2000.00', expected_amount: null, target_envelope_id: null, income_types: [{ name: 'Salaire', emoji: '💼' }] },
     ], error: null }
     mocks.responseByTable.transfers = { data: [
-      { date: '2026-09-02', from_envelope_id: 'e1', to_envelope_id: 'e2', amount: '10.00', reason: 'test' },
+      { date: '2026-09-02', from_kind: 'envelope', to_kind: 'envelope', from_envelope_id: 'e1', to_envelope_id: 'e2', from_account_id: null, to_account_id: null, amount: '10.00', reason: 'test', source: 'manual' },
+      { date: '2026-09-03', from_kind: 'budget', to_kind: 'account', from_envelope_id: null, to_envelope_id: null, from_account_id: null, to_account_id: 'a1', amount: '150.00', reason: '', source: 'manual' },
     ], error: null }
+    mocks.responseByTable.accounts = { data: [{ id: 'a1', name: 'LDDS', emoji: '🏦', kind: 'epargne' }], error: null }
     mocks.responseByTable.savings_entries = { data: [{ savings_goal_id: 'g1', amount: '200.00', source: 'manual' }], error: null }
     mocks.responseByTable.savings_goals = { data: [{ id: 'g1', name: 'Long terme', receives_salary_variance: true }], error: null }
 
@@ -78,7 +80,11 @@ describe('closureQuery', () => {
       categoryName: 'Restaurants', categoryEmoji: '🍽️', categoryBucket: 'envies',
     })
     expect(data.incomes[0]).toMatchObject({ amount: 2000, expectedAmount: null, targetEnvelopeId: null, typeName: 'Salaire' })
-    expect(data.transfers[0]).toEqual({ date: '2026-09-02', fromEnvelopeId: 'e1', toEnvelopeId: 'e2', amount: 10, reason: 'test' })
+    expect(data.transfers).toEqual([
+      { date: '2026-09-02', fromKind: 'envelope', toKind: 'envelope', fromEnvelopeId: 'e1', toEnvelopeId: 'e2', fromAccountId: null, toAccountId: null, amount: 10, reason: 'test', source: 'manual' },
+      { date: '2026-09-03', fromKind: 'budget', toKind: 'account', fromEnvelopeId: null, toEnvelopeId: null, fromAccountId: null, toAccountId: 'a1', amount: 150, reason: '', source: 'manual' },
+    ])
+    expect(data.accounts).toEqual([{ id: 'a1', name: 'LDDS', emoji: '🏦', kind: 'epargne' }])
     expect(data.savingsEntries).toEqual([{ savingsGoalId: 'g1', amount: 200, source: 'manual' }])
     expect(data.savingsGoals).toEqual([{ id: 'g1', name: 'Long terme', receivesSalaryVariance: true }])
 

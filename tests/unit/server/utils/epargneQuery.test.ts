@@ -7,7 +7,10 @@ const mocks = vi.hoisted(() => {
     income_entries: { data: [], error: null },
     expense_entries: { data: [], error: null },
     categories: { data: [], error: null },
+    transfers: { data: [], error: null },
+    accounts: { data: [], error: null },
   }
+  const orCalls: Record<string, string[]> = {}
   const eqCalls: Record<string, [string, unknown][]> = {}
 
   const makeClient = () => ({
@@ -16,6 +19,7 @@ const mocks = vi.hoisted(() => {
         select: () => builder,
         eq: (c: string, v: unknown) => { (eqCalls[table] ??= []).push([c, v]); return builder },
         is: () => builder,
+        or: (filter: string) => { (orCalls[table] ??= []).push(filter); return builder },
         order: () => builder,
         abortSignal: () => builder,
         then: (ok: any, err: any) => Promise.resolve(responseByTable[table]).then(ok, err),
@@ -24,7 +28,7 @@ const mocks = vi.hoisted(() => {
     },
   })
 
-  return { responseByTable, eqCalls, makeClient }
+  return { responseByTable, eqCalls, orCalls, makeClient }
 })
 
 vi.mock('../../../../server/utils/supabase', () => ({ createSupabaseServerClient: () => mocks.makeClient() }))
@@ -48,6 +52,7 @@ describe('fetchEpargne', () => {
       mocks.responseByTable[key] = { data: [], error: null }
     }
     for (const key of Object.keys(mocks.eqCalls)) delete mocks.eqCalls[key]
+    for (const key of Object.keys(mocks.orCalls)) delete mocks.orCalls[key]
     ledgerMock.mockReset()
     reserveMock.mockReset()
   })
@@ -175,5 +180,27 @@ describe('fetchEpargne', () => {
     expect(payload.contributions).toEqual([
       { kind: 'closure', label: 'Reliquats de clôture', detail: 'clôture de décembre', amount: 12.5 },
     ])
+  })
+
+  it('counts Budget → LDDS 150 in the month savings, history and 50/30/20', async () => {
+    mocks.responseByTable.income_entries = { data: [{ amount: '2000.00', expected_amount: null, target_envelope_id: null }], error: null }
+    mocks.responseByTable.accounts = { data: [{ id: 'ldds', name: 'LDDS', emoji: '🏦', kind: 'epargne' }, { id: 'cc', name: 'CC', emoji: '💳', kind: 'courant' }], error: null }
+    mocks.responseByTable.transfers = { data: [
+      { year_assigned: 2026, month_assigned: 10, from_kind: 'budget', to_kind: 'account', from_account_id: null, to_account_id: 'ldds', amount: '150.00' },
+      // Not savings: a courant account, and an épargne-to-épargne move.
+      { year_assigned: 2026, month_assigned: 10, from_kind: 'budget', to_kind: 'account', from_account_id: null, to_account_id: 'cc', amount: '40.00' },
+      { year_assigned: 2026, month_assigned: 9, from_kind: 'account', to_kind: 'budget', from_account_id: 'ldds', to_account_id: null, amount: '30.00' },
+    ], error: null }
+
+    const payload = await fetchEpargne(fakeEvent(), 2026, 10, 6)
+
+    // 150 / 2000 = 7.5 % rounds to 8.
+    expect(payload.ruleOfThumb.actuals.epargne).toBe(8)
+    expect(payload.history.at(-1)).toMatchObject({ month: 10, amount: 150 })
+    expect(payload.history.at(-2)).toMatchObject({ month: 9, amount: -30 })
+    expect(payload.contributions).toEqual([
+      { kind: 'account', label: '🏦 LDDS', detail: 'transferts du mois', amount: 150 },
+    ])
+    expect(mocks.orCalls.transfers).toEqual(['from_kind.eq.account,to_kind.eq.account'])
   })
 })

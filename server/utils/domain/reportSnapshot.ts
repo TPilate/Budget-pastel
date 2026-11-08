@@ -1,6 +1,9 @@
 import { summariseIncome, compute503020 } from './dashboard'
 import type { Bucket5030 } from './dashboard'
 import { monthLabel, toCents } from './closure'
+import { summariseMonthTransfers, netSavings } from './transferFlows'
+import type { TransferFlow } from './transferFlows'
+import { transferSideLabel } from './transferLabels'
 import type { MonthData, LeftoverRow, ClosurePlan, PlannedDecision } from './closure'
 
 export interface MonthSummary { income: number, spent: number, saved: number, remaining: number }
@@ -30,7 +33,10 @@ const sum = (rows: { amount: number }[]) => rows.reduce((total, row) => total + 
  * envelope-targeted income is a reimbursement, gift-received spend is not budget money,
  * and an envelope's bucket outranks its category's.
  */
-export function summariseMonth(data: MonthData, closureSavings: number): { summary: MonthSummary, rule503020: Rule503020View } {
+export function summariseMonth(
+  data: MonthData,
+  closure: { toSavings: number, toAccounts: { accountId: string, amount: number }[] },
+): { summary: MonthSummary, rule503020: Rule503020View } {
   const income = summariseIncome(data.incomes.map((income) => ({
     amount: income.amount,
     expectedAmount: income.expectedAmount,
@@ -39,7 +45,18 @@ export function summariseMonth(data: MonthData, closureSavings: number): { summa
 
   const budgetSpend = data.expenses.filter((expense) => expense.financedBy !== 'gift_received')
   const spent = sum(budgetSpend)
-  const saved = sum(data.savingsEntries.filter((entry) => entry.source === 'manual')) + closureSavings
+  const poche = sum(data.savingsEntries.filter((entry) => entry.source === 'manual')) + closure.toSavings
+
+  // Leftovers sent to an account are not transfers yet while the month is being closed:
+  // they count as envelope → account rows.
+  const flows: TransferFlow[] = [
+    ...data.transfers,
+    ...closure.toAccounts.map((row): TransferFlow => ({
+      fromKind: 'envelope', toKind: 'account', fromAccountId: null, toAccountId: row.accountId, amount: row.amount,
+    })),
+  ]
+  const t = summariseMonthTransfers(flows, new Map(data.accounts.map((account) => [account.id, account.kind])))
+  const saved = netSavings(poche, t)
 
   const bucketByEnvelope = new Map(data.envelopes.map((envelope) => [envelope.id, envelope.bucket]))
   const rule = compute503020({
@@ -56,7 +73,7 @@ export function summariseMonth(data: MonthData, closureSavings: number): { summa
       income: toCents(income),
       spent: toCents(spent),
       saved: toCents(saved),
-      remaining: toCents(income - spent - saved),
+      remaining: toCents(income - spent - poche + t.entering - t.leaving),
     },
     rule503020: { targets: rule.targets, actuals: rule.actuals },
   }
@@ -71,6 +88,11 @@ export function buildReportSnapshot(input: {
   const { data, leftovers, plan } = input
   const envelopeName = (id: string | null) => (id ? data.envelopes.find((e) => e.id === id)?.name ?? null : null)
   const goalName = (id: string | null) => data.savingsGoals.find((g) => g.id === id)?.name ?? ''
+  const sideName = (kind: string, envelopeId: string | null, accountId: string | null) =>
+    transferSideLabel(
+      kind,
+      kind === 'account' ? data.accounts.find((a) => a.id === accountId) ?? null : data.envelopes.find((e) => e.id === envelopeId) ?? null,
+    )
   const decisionByEnvelope = new Map(plan.decisions.map((decision) => [decision.envelopeId, decision]))
 
   function destinationLabel(row: LeftoverRow, decision: PlannedDecision | undefined): string | null {
@@ -81,7 +103,7 @@ export function buildReportSnapshot(input: {
     return `Vers ${envelopeName(decision.targetEnvelopeId)}`
   }
 
-  const { summary, rule503020 } = summariseMonth(data, plan.totals.toSavings)
+  const { summary, rule503020 } = summariseMonth(data, { toSavings: plan.totals.toSavings, toAccounts: [] })
 
   return {
     version: 1,
@@ -108,8 +130,8 @@ export function buildReportSnapshot(input: {
     })),
     transfers: data.transfers.map((transfer) => ({
       date: transfer.date,
-      fromName: envelopeName(transfer.fromEnvelopeId) ?? '—',
-      toName: envelopeName(transfer.toEnvelopeId) ?? '—',
+      fromName: sideName(transfer.fromKind, transfer.fromEnvelopeId, transfer.fromAccountId),
+      toName: sideName(transfer.toKind, transfer.toEnvelopeId, transfer.toAccountId),
       reason: transfer.reason || null,
       amount: transfer.amount,
     })),

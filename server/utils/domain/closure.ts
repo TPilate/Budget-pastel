@@ -1,5 +1,6 @@
 import { computeEnvelopeLedger } from './envelopeLedger'
 import type { Bucket5030 } from './dashboard'
+import type { TransferEndpointKind } from './transferFlows'
 
 export interface YearMonth { year: number, month: number }
 
@@ -108,7 +109,20 @@ export interface MonthData {
     typeName: string
     typeEmoji: string
   }[]
-  transfers: { date: string, fromEnvelopeId: string, toEnvelopeId: string, amount: number, reason: string }[]
+  transfers: {
+    date: string
+    fromKind: TransferEndpointKind
+    toKind: TransferEndpointKind
+    fromEnvelopeId: string | null
+    toEnvelopeId: string | null
+    fromAccountId: string | null
+    toAccountId: string | null
+    amount: number
+    reason: string
+    source: 'manual' | 'closure'
+  }[]
+  /** Every account, archived included: the month's transfers still name them. */
+  accounts: { id: string, name: string, emoji: string, kind: 'courant' | 'epargne' }[]
   /** This month only. */
   savingsEntries: { savingsGoalId: string, amount: number, source: 'manual' | 'closure' }[]
   savingsGoals: { id: string, name: string, receivesSalaryVariance: boolean }[]
