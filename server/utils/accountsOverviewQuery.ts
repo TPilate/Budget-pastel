@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3'
 import { createError } from 'h3'
 import { createSupabaseServerClient } from './supabase'
+import { fetchAccountBalances } from './accountBalanceQuery'
 import { listBudgetEnvelopeLedgers } from './envelopeCeilingsQuery'
 import { listReserveEnvelopeBalances } from './reserveEnvelopeQuery'
 import { computeAccountTotals, summariseFixedCharges } from './domain/accountsOverview'
@@ -53,13 +54,14 @@ export async function fetchAccountsOverview(
   const ledgers = await listBudgetEnvelopeLedgers(event, year, month)
   const reserves = await listReserveEnvelopeBalances()
 
-  const [accountsRes, categoriesRes, expensesRes] = await Promise.all([
+  const [accountsRes, categoriesRes, expensesRes, balances] = await Promise.all([
     supabase.from('accounts').select('id,name,emoji,current_balance,kind')
       .is('archived_at', null).order('sort_order').abortSignal(signal),
     supabase.from('categories').select('id,name,default_target')
       .eq('is_fixed', true).is('archived_at', null).order('sort_order').abortSignal(signal),
     supabase.from('expense_entries').select('category_id')
       .eq('year_assigned', year).eq('month_assigned', month).abortSignal(signal),
+    fetchAccountBalances(event),
   ])
 
   assertOk('accounts', accountsRes.error)
@@ -70,7 +72,7 @@ export async function fetchAccountsOverview(
     id: row.id,
     name: row.name,
     emoji: row.emoji,
-    balance: Number(row.current_balance),
+    balance: balances.get(row.id) ?? Number(row.current_balance),
     kind: row.kind as AccountKind,
   }))
 

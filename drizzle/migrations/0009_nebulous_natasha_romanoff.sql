@@ -1,0 +1,1 @@
+ALTER TABLE "accounts" ADD COLUMN "reference_set_at" timestamp with time zone DEFAULT now() NOT NULL;

@@ -47,6 +47,8 @@ export const accounts = pgTable('accounts', {
   sortOrder: integer('sort_order').notNull().default(0),
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   kind: accountKindEnum('kind').notNull().default('courant'),
+  // When current_balance was last set by hand; only transfers created after it move the balance.
+  referenceSetAt: timestamp('reference_set_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
 export const savingsGoals = pgTable('savings_goals', {

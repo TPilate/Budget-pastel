@@ -22,6 +22,11 @@ describe('reference patch schemas coerce archivedAt to a Date', () => {
     expect(result.archivedAt).toBeInstanceOf(Date)
   })
 
+  it('accountPatchSchema coerces balance and omits it when absent', () => {
+    expect(accountPatchSchema.parse({ balance: '1234,5'.replace(',', '.') }).balance).toBe(1234.5)
+    expect(accountPatchSchema.parse({ name: 'X' })).not.toHaveProperty('balance')
+  })
+
   it('accountPatchSchema', () => {
     const result = accountPatchSchema.parse({ archivedAt: isoString })
     expect(result.archivedAt).toBeInstanceOf(Date)

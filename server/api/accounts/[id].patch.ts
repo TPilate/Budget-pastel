@@ -13,5 +13,9 @@ export default defineEventHandler(async (event) => {
   }
 
   const input = await validateBody(event, accountPatchSchema)
-  return patchRow(accounts, id, input)
+  const { balance, ...rest } = input
+  const values = balance === undefined
+    ? rest
+    : { ...rest, currentBalance: String(balance), referenceSetAt: new Date() }
+  return patchRow(accounts, id, values)
 })

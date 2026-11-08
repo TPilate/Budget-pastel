@@ -5,6 +5,7 @@ import { fetchWishlist } from './wishlistQuery'
 import { listBudgetEnvelopeLedgers } from './envelopeCeilingsQuery'
 import { listReserveEnvelopeBalances } from './reserveEnvelopeQuery'
 import { fetchActiveRows, fetchSavingsGoals } from './referenceQuery'
+import { fetchAccountBalances } from './accountBalanceQuery'
 import { getClosureStatus } from './closureService'
 
 // One composer per page endpoint. Each starts every read at once and fails as a whole:
@@ -60,11 +61,12 @@ export async function getEnviesPage(event: H3Event, now: Date) {
 }
 
 export async function getParametresPage(event: H3Event, _now: Date) {
-  const [categories, envelopes, incomeTypes, accounts] = await Promise.all([
+  const [categories, envelopes, incomeTypes, accounts, balances] = await Promise.all([
     fetchActiveRows(event, 'categories'),
     fetchActiveRows(event, 'envelopes'),
     fetchActiveRows(event, 'income_types'),
     fetchActiveRows(event, 'accounts'),
+    fetchAccountBalances(event),
   ])
-  return { categories, envelopes, incomeTypes, accounts }
+  return { categories, envelopes, incomeTypes, accounts, accountBalances: Object.fromEntries(balances) }
 }

@@ -76,6 +76,15 @@ describe('fetchAccountsOverview', () => {
     expect(overview.accounts).toHaveLength(2)
   })
 
+  it('uses the computed balance of each account, not the raw column', async () => {
+    mocks.responseByTable.accounts = {
+      data: [{ id: 'a1', name: 'Compte', emoji: '💳', current_balance: '250.00', reference_set_at: '2026-11-01T10:00:00Z', kind: 'courant' }],
+      error: null,
+    }
+    const overview = await fetchAccountsOverview(fakeEvent(), 2026, 9)
+    expect(overview.accounts[0].balance).toBe(250)
+  })
+
   it('derives fixed-charge tick state from this month\'s expenses', async () => {
     mocks.responseByTable.categories = {
       data: [

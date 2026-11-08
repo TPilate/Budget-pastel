@@ -17,6 +17,7 @@ const src = vi.hoisted(() => ({
   fetchActiveRows: deferred.make('fetchActiveRows'),
   fetchSavingsGoals: deferred.make('fetchSavingsGoals'),
   getClosureStatus: deferred.make('getClosureStatus'),
+  fetchAccountBalances: deferred.make('fetchAccountBalances'),
 }))
 
 vi.mock('../../../../server/utils/dashboardQuery', () => ({ fetchDashboard: src.fetchDashboard }))
@@ -25,6 +26,7 @@ vi.mock('../../../../server/utils/wishlistQuery', () => ({ fetchWishlist: src.fe
 vi.mock('../../../../server/utils/envelopeCeilingsQuery', () => ({ listBudgetEnvelopeLedgers: src.listBudgetEnvelopeLedgers }))
 vi.mock('../../../../server/utils/reserveEnvelopeQuery', () => ({ listReserveEnvelopeBalances: src.listReserveEnvelopeBalances }))
 vi.mock('../../../../server/utils/referenceQuery', () => ({ fetchActiveRows: src.fetchActiveRows, fetchSavingsGoals: src.fetchSavingsGoals }))
+vi.mock('../../../../server/utils/accountBalanceQuery', () => ({ fetchAccountBalances: src.fetchAccountBalances }))
 vi.mock('../../../../server/utils/closureService', () => ({ getClosureStatus: src.getClosureStatus }))
 // The Data-API-only guards live in referenceQuery.test.ts and envelopeCeilingsQuery.test.ts.
 
@@ -73,16 +75,20 @@ describe('page composers', () => {
     })
   })
 
-  it('Paramètres: four lists in parallel, keyed as the page reads them', async () => {
+  it('Paramètres: four lists and the account balances in parallel, keyed as the page reads them', async () => {
     const result = getParametresPage(event, NOW)
     await Promise.resolve()
-    expect(deferred.pending).toHaveLength(4)
-    const page = await settle(result, { fetchActiveRows: (args) => [{ table: args[1] }] })
+    expect(deferred.pending).toHaveLength(5)
+    const page = await settle(result, {
+      fetchActiveRows: (args) => [{ table: args[1] }],
+      fetchAccountBalances: () => new Map([['a1', 1110]]),
+    })
     expect(page).toEqual({
       categories: [{ table: 'categories' }],
       envelopes: [{ table: 'envelopes' }],
       incomeTypes: [{ table: 'income_types' }],
       accounts: [{ table: 'accounts' }],
+      accountBalances: { a1: 1110 },
     })
   })
 
