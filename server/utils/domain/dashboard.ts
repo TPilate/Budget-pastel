@@ -1,5 +1,7 @@
+import type { MonthTransferTotals } from './transferFlows'
+
 export type Bucket5030 = 'besoins' | 'envies' | 'epargne'
-export type SliceKey = 'fixed' | 'envelope' | 'variable' | 'savings' | 'unspent'
+export type SliceKey = 'fixed' | 'envelope' | 'variable' | 'savings' | 'accounts' | 'unspent'
 
 export interface DashboardSlice {
   key: SliceKey
@@ -85,6 +87,7 @@ export function computeMonthSummary(input: {
   envelope: number
   variable: number
   savings: number
+  transfers: MonthTransferTotals
   daysRemaining: number
 }): {
   unspent: number
@@ -92,24 +95,31 @@ export function computeMonthSummary(input: {
   allocatedPercent: number
   slices: DashboardSlice[]
 } {
-  const { incomeReceived, fixed, envelope, variable, savings, daysRemaining } = input
+  const { incomeReceived, fixed, envelope, variable, savings, transfers, daysRemaining } = input
 
   // May be negative, and is shown as such — overspending is information, not an error.
-  const unspent = incomeReceived - fixed - envelope - variable - savings
+  // Money from an account adds to the month and money sent to one leaves it (§5.2).
+  const unspent = incomeReceived - fixed - envelope - variable - savings + transfers.entering - transfers.leaving
 
+  // Money entering the month is part of what the slices partition, so it joins the base.
+  const base = incomeReceived + transfers.entering
+
+  // `leaving` splits into the savings slice (épargne accounts) and the accounts slice
+  // (the rest), so both stay non-negative however much was withdrawn the other way.
   const slices: DashboardSlice[] = [
-    { key: 'fixed', amount: fixed, percent: share(fixed, incomeReceived) },
-    { key: 'envelope', amount: envelope, percent: share(envelope, incomeReceived) },
-    { key: 'variable', amount: variable, percent: share(variable, incomeReceived) },
-    { key: 'savings', amount: savings, percent: share(savings, incomeReceived) },
-    { key: 'unspent', amount: unspent, percent: share(unspent, incomeReceived) },
+    { key: 'fixed', amount: fixed, percent: share(fixed, base) },
+    { key: 'envelope', amount: envelope, percent: share(envelope, base) },
+    { key: 'variable', amount: variable, percent: share(variable, base) },
+    { key: 'savings', amount: savings + transfers.toSavingsAccounts, percent: share(savings + transfers.toSavingsAccounts, base) },
+    { key: 'accounts', amount: transfers.toOtherAccounts, percent: share(transfers.toOtherAccounts, base) },
+    { key: 'unspent', amount: unspent, percent: share(unspent, base) },
   ]
 
   return {
     unspent,
     // Callers floor daysRemaining at 1, so this guard is defensive only.
     perDay: daysRemaining > 0 ? unspent / daysRemaining : unspent,
-    allocatedPercent: incomeReceived > 0 ? 100 - share(unspent, incomeReceived) : 0,
+    allocatedPercent: base > 0 ? 100 - share(unspent, base) : 0,
     slices,
   }
 }

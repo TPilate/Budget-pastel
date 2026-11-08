@@ -12,6 +12,8 @@ import {
   compute503020,
   daysRemainingInMonth,
 } from './domain/dashboard'
+import { summariseMonthTransfers, netSavings } from './domain/transferFlows'
+import type { TransferFlow } from './domain/transferFlows'
 import type { Bucket5030, DashboardSlice } from './domain/dashboard'
 import type { Movement } from './domain/movementsFeed'
 
@@ -23,6 +25,8 @@ const EXPENSE_SELECT
 const INCOME_SELECT = 'amount,expected_amount,target_envelope_id'
 
 const REQUEST_TIMEOUT_MS = 10000
+const TRANSFER_SELECT = 'from_kind,to_kind,from_account_id,to_account_id,amount'
+
 const RECENT_MOVEMENT_COUNT = 5
 
 const MONTH_NAMES = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
@@ -30,7 +34,11 @@ const MONTH_NAMES = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Jui
 export interface DashboardPayload {
   month: { year: number, month: number, label: string, daysRemaining: number }
   income: { received: number, salaryReceived: number, salaryExpected: number, salaryVariance: number }
-  savings: { total: number, byGoal: { goalId: string, goalName: string, amount: number }[] }
+  savings: {
+    total: number
+    byGoal: { goalId: string, goalName: string, amount: number }[]
+    byAccount: { accountId: string, name: string, emoji: string, amount: number }[]
+  }
   envelopes: {
     totalCeiling: number
     totalNetSpent: number
@@ -82,17 +90,23 @@ export async function fetchDashboard(
   const ledgers = await listBudgetEnvelopeLedgers(event, year, month)
   const reserves = await listReserveEnvelopeBalances()
 
-  const [expenseRes, incomeRes, movements, savingsEntries] = await Promise.all([
+  const [expenseRes, incomeRes, transferRes, accountRes, movements, savingsEntries] = await Promise.all([
     supabase.from('expense_entries').select(EXPENSE_SELECT)
       .eq('year_assigned', year).eq('month_assigned', month).abortSignal(signal),
     supabase.from('income_entries').select(INCOME_SELECT)
       .eq('year_assigned', year).eq('month_assigned', month).abortSignal(signal),
+    supabase.from('transfers').select(TRANSFER_SELECT)
+      .eq('year_assigned', year).eq('month_assigned', month).abortSignal(signal),
+    // Every account, archived included: a closed month's transfers still name them.
+    supabase.from('accounts').select('id,name,emoji,kind').abortSignal(signal),
     fetchMovements(event, year, month),
     fetchSavings(event, year, month),
   ])
 
   assertOk('expense_entries', expenseRes.error)
   assertOk('income_entries', incomeRes.error)
+  assertOk('transfers', transferRes.error)
+  assertOk('accounts', accountRes.error)
 
   const expenseRows = (expenseRes.data ?? []) as any[]
 
@@ -109,14 +123,44 @@ export async function fetchDashboard(
     targetEnvelopeId: row.target_envelope_id ?? null,
   })))
 
-  const savingsTotal = savingsEntries.reduce((sum, entry) => sum + entry.amount, 0)
+  const pocheTotal = savingsEntries.reduce((sum, entry) => sum + entry.amount, 0)
+
+  const accounts = (accountRes.data ?? []) as any[]
+  const accountKinds = new Map<string, 'courant' | 'epargne'>(accounts.map((row) => [row.id, row.kind]))
+  const transferTotals = summariseMonthTransfers(
+    ((transferRes.data ?? []) as any[]).map((row): TransferFlow => ({
+      fromKind: row.from_kind,
+      toKind: row.to_kind,
+      fromAccountId: row.from_account_id ?? null,
+      toAccountId: row.to_account_id ?? null,
+      amount: Number(row.amount),
+    })),
+    accountKinds,
+  )
+  const savingsTotal = netSavings(pocheTotal, transferTotals)
+
+  // Net per épargne account: what went in minus what came out, for the savings list.
+  const netByAccount = new Map<string, number>()
+  for (const row of (transferRes.data ?? []) as any[]) {
+    const amount = Number(row.amount)
+    if (row.to_kind === 'account' && row.from_kind !== 'account' && accountKinds.get(row.to_account_id) === 'epargne') {
+      netByAccount.set(row.to_account_id, (netByAccount.get(row.to_account_id) ?? 0) + amount)
+    }
+    if (row.from_kind === 'account' && row.to_kind !== 'account' && accountKinds.get(row.from_account_id) === 'epargne') {
+      netByAccount.set(row.from_account_id, (netByAccount.get(row.from_account_id) ?? 0) - amount)
+    }
+  }
+  const byAccount = accounts
+    .filter((row) => (netByAccount.get(row.id) ?? 0) !== 0)
+    .map((row) => ({ accountId: row.id as string, name: row.name as string, emoji: row.emoji as string, amount: netByAccount.get(row.id)! }))
 
   const summary = computeMonthSummary({
     incomeReceived: income.received,
     fixed: partition.fixed,
     envelope: partition.envelope,
     variable: partition.variable,
-    savings: savingsTotal,
+    savings: pocheTotal,
+    transfers: transferTotals,
     daysRemaining: daysRemainingInMonth(today),
   })
 
@@ -141,7 +185,7 @@ export async function fetchDashboard(
   const ruleOfThumb = compute503020({
     incomeReceived: income.received,
     taggedSpend,
-    savings: savingsTotal,
+    savings: Math.max(0, savingsTotal),
   })
 
   return {
@@ -152,7 +196,7 @@ export async function fetchDashboard(
       daysRemaining: daysRemainingInMonth(today),
     },
     income,
-    savings: { total: savingsTotal, byGoal: savingsEntries },
+    savings: { total: savingsTotal, byGoal: savingsEntries, byAccount },
     envelopes: {
       totalCeiling: ledgers.reduce((sum, l) => sum + l.ceiling, 0),
       totalNetSpent: ledgers.reduce((sum, l) => sum + l.netSpent, 0),

@@ -231,4 +231,18 @@ describe('listBudgetEnvelopeLedgers', () => {
       statusCode: 500, message: expect.stringContaining('transfers'),
     })
   })
+
+  it('ledger counts a budget → envelope transfer as transfersIn', async () => {
+    mocks.rowsByTable.envelopes = [
+      { id: 'voyage', name: 'Voyage', emoji: '✈️', show_on_home: true, default_ceiling: '0.00' },
+    ]
+    // Budget side has no envelope id; an account side likewise.
+    mocks.rowsByTable.transfers = [
+      { from_envelope_id: null, to_envelope_id: 'voyage', amount: '300.00' },
+    ]
+
+    const result = await listBudgetEnvelopeLedgers(event, 2026, 10)
+
+    expect(result[0]).toMatchObject({ id: 'voyage', ceiling: 300, remaining: 300 })
+  })
 })

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-type SliceKey = 'fixed' | 'envelope' | 'variable' | 'savings' | 'unspent'
+type SliceKey = 'fixed' | 'envelope' | 'variable' | 'savings' | 'accounts' | 'unspent'
 
 interface DashboardPayload {
   month: { year: number, month: number, label: string, daysRemaining: number }
   income: { received: number, salaryReceived: number, salaryExpected: number, salaryVariance: number }
-  savings: { total: number, byGoal: { goalId: string, goalName: string, amount: number }[] }
+  savings: { total: number, byGoal: { goalId: string, goalName: string, amount: number }[], byAccount: { accountId: string, name: string, emoji: string, amount: number }[] }
   envelopes: {
     totalCeiling: number
     totalNetSpent: number
@@ -41,6 +41,7 @@ const SLICE_LABEL: Record<SliceKey, string> = {
   envelope: 'Dépenses enveloppes',
   variable: 'Variables',
   savings: 'Épargne',
+  accounts: 'Vers les comptes',
   unspent: 'Non dépensé',
 }
 
@@ -49,6 +50,7 @@ const SLICE_COLOR: Record<SliceKey, string> = {
   envelope: 'var(--color-warn-bar)',
   variable: 'var(--color-azure-bar)',
   savings: 'var(--color-mint-bar)',
+  accounts: 'var(--color-accent-bar)',
   unspent: 'var(--color-toggle-track)',
 }
 

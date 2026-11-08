@@ -7,6 +7,8 @@ import {
   daysRemainingInMonth,
 } from '../../../../../server/utils/domain/dashboard'
 
+const NONE = { entering: 0, leaving: 0, toSavingsAccounts: 0, fromSavingsAccounts: 0, toOtherAccounts: 0 }
+
 describe('partitionExpenses', () => {
   it('sends an expense with an envelope to the envelope bucket even when its category is fixed', () => {
     // The envelope is the more specific intent, so it wins over is_fixed.
@@ -99,7 +101,7 @@ describe('computeMonthSummary', () => {
       fixed: 861,
       envelope: 424,
       variable: 318,
-      savings: 345,
+      savings: 345, transfers: NONE,
       daysRemaining: 11,
     })
     expect(result.unspent).toBe(368)
@@ -110,13 +112,14 @@ describe('computeMonthSummary', () => {
       ['envelope', 424, 18],
       ['variable', 318, 14],
       ['savings', 345, 15],
+      ['accounts', 0, 0],
       ['unspent', 368, 16],
     ])
   })
 
   it('reports a negative unspent when spending exceeds income', () => {
     const result = computeMonthSummary({
-      incomeReceived: 1000, fixed: 900, envelope: 200, variable: 0, savings: 0, daysRemaining: 5,
+      incomeReceived: 1000, fixed: 900, envelope: 200, variable: 0, savings: 0, transfers: NONE, daysRemaining: 5,
     })
     expect(result.unspent).toBe(-100)
     expect(result.perDay).toBe(-20)
@@ -125,7 +128,7 @@ describe('computeMonthSummary', () => {
   it('produces zeroes rather than NaN when no income is recorded', () => {
     // Percentages are amount/income; with income 0 this must not divide by zero.
     const result = computeMonthSummary({
-      incomeReceived: 0, fixed: 100, envelope: 0, variable: 0, savings: 0, daysRemaining: 10,
+      incomeReceived: 0, fixed: 100, envelope: 0, variable: 0, savings: 0, transfers: NONE, daysRemaining: 10,
     })
     expect(result.allocatedPercent).toBe(0)
     for (const slice of result.slices) {
@@ -136,7 +139,7 @@ describe('computeMonthSummary', () => {
 
   it('does not divide by zero when no days remain', () => {
     const result = computeMonthSummary({
-      incomeReceived: 100, fixed: 0, envelope: 0, variable: 0, savings: 0, daysRemaining: 0,
+      incomeReceived: 100, fixed: 0, envelope: 0, variable: 0, savings: 0, transfers: NONE, daysRemaining: 0,
     })
     expect(Number.isFinite(result.perDay)).toBe(true)
   })
@@ -212,5 +215,19 @@ describe('partitionExpenses with an uncategorised envelope expense', () => {
   it('counts it in the envelope slice', () => {
     expect(partitionExpenses([{ amount: 30, envelopeId: 'env', categoryIsFixed: false, financedBy: 'budget' }]))
       .toEqual({ fixed: 0, envelope: 30, variable: 0 })
+  })
+})
+
+describe('computeMonthSummary with transfers', () => {
+  const none = NONE
+
+  it('uses income + entering as the percent base', () => {
+    const result = computeMonthSummary({
+      incomeReceived: 1000, fixed: 500, envelope: 0, variable: 0, savings: 0,
+      transfers: { ...none, entering: 1000, fromSavingsAccounts: 1000 }, daysRemaining: 10,
+    })
+    expect(result.unspent).toBe(1500)
+    expect(result.slices.find((s) => s.key === 'fixed')?.percent).toBe(25)
+    expect(result.slices.find((s) => s.key === 'unspent')?.percent).toBe(75)
   })
 })

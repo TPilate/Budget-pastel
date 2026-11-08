@@ -4,6 +4,8 @@ const mocks = vi.hoisted(() => {
   const responseByTable: Record<string, { data: any[] | null, error: any }> = {
     expense_entries: { data: [], error: null },
     income_entries: { data: [], error: null },
+    transfers: { data: [], error: null },
+    accounts: { data: [], error: null },
   }
   const eqCalls: Record<string, [string, unknown][]> = {}
 
@@ -49,6 +51,8 @@ describe('fetchDashboard', () => {
   beforeEach(() => {
     mocks.responseByTable.expense_entries = { data: [], error: null }
     mocks.responseByTable.income_entries = { data: [], error: null }
+    mocks.responseByTable.transfers = { data: [], error: null }
+    mocks.responseByTable.accounts = { data: [], error: null }
     for (const key of Object.keys(mocks.eqCalls)) delete mocks.eqCalls[key]
     ledgerMock.mockReset().mockResolvedValue([])
     reserveMock.mockReset().mockResolvedValue([])
@@ -203,5 +207,54 @@ describe('fetchDashboard', () => {
   it('throws rather than returning a partial payload when a request fails', async () => {
     mocks.responseByTable.expense_entries = { data: null, error: { message: 'permission denied for table expense_entries' } }
     await expect(fetchDashboard(fakeEvent(), 2026, 9, new Date(2026, 8, 20))).rejects.toThrow(/expense_entries/)
+  })
+
+  it('counts transfers to and from accounts in the month figures and savings', async () => {
+    mocks.responseByTable.income_entries = {
+      data: [{ amount: '2000.00', expected_amount: null, target_envelope_id: null }],
+      error: null,
+    }
+    mocks.responseByTable.accounts = {
+      data: [
+        { id: 'ldds', name: 'Livret LDDS', emoji: '🏦', kind: 'epargne' },
+        { id: 'joint', name: 'Compte joint', emoji: '👫', kind: 'courant' },
+      ],
+      error: null,
+    }
+    mocks.responseByTable.transfers = {
+      data: [
+        { from_kind: 'budget', to_kind: 'account', from_account_id: null, to_account_id: 'ldds', amount: '150.00' },
+        { from_kind: 'budget', to_kind: 'account', from_account_id: null, to_account_id: 'joint', amount: '50.00' },
+        { from_kind: 'account', to_kind: 'budget', from_account_id: 'ldds', to_account_id: null, amount: '40.00' },
+      ],
+      error: null,
+    }
+
+    const payload = await fetchDashboard(fakeEvent(), 2026, 10, new Date(2026, 9, 20))
+
+    // 2000 + 40 entering - 200 leaving
+    expect(payload.summary.unspent).toBe(1840)
+    expect(payload.savings.total).toBe(110)
+    expect(payload.savings.byAccount).toEqual([{ accountId: 'ldds', name: 'Livret LDDS', emoji: '🏦', amount: 110 }])
+    expect(payload.summary.slices.find((s) => s.key === 'accounts')?.amount).toBe(50)
+    expect(payload.ruleOfThumb.actuals.epargne).toBe(6)
+    expect(mocks.eqCalls.transfers).toEqual([['year_assigned', 2026], ['month_assigned', 10]])
+  })
+
+  it('does not feed a negative net savings into 50/30/20', async () => {
+    mocks.responseByTable.income_entries = {
+      data: [{ amount: '1000.00', expected_amount: null, target_envelope_id: null }],
+      error: null,
+    }
+    mocks.responseByTable.accounts = { data: [{ id: 'ldds', name: 'LDDS', emoji: '🏦', kind: 'epargne' }], error: null }
+    mocks.responseByTable.transfers = {
+      data: [{ from_kind: 'account', to_kind: 'budget', from_account_id: 'ldds', to_account_id: null, amount: '100.00' }],
+      error: null,
+    }
+
+    const payload = await fetchDashboard(fakeEvent(), 2026, 10, new Date(2026, 9, 20))
+
+    expect(payload.savings.total).toBe(-100)
+    expect(payload.ruleOfThumb.actuals.epargne).toBe(0)
   })
 })
