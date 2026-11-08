@@ -57,3 +57,20 @@ export function netSavings(pocheVersements: number, t: MonthTransferTotals): num
 export function budgetLibre(unspent: number, budgetEnvelopeRemaining: number[]): number {
   return unspent - budgetEnvelopeRemaining.reduce((sum, remaining) => sum + Math.max(0, remaining), 0)
 }
+
+/** Net per épargne account for the month: what went in minus what came out. Zero nets are kept. */
+export function netByEpargneAccount(
+  transfers: TransferFlow[],
+  accountKinds: Map<string, 'courant' | 'epargne'>,
+): Map<string, number> {
+  const net = new Map<string, number>()
+  for (const t of transfers) {
+    if (t.toKind === 'account' && t.fromKind !== 'account' && accountKinds.get(t.toAccountId ?? '') === 'epargne') {
+      net.set(t.toAccountId!, (net.get(t.toAccountId!) ?? 0) + t.amount)
+    }
+    if (t.fromKind === 'account' && t.toKind !== 'account' && accountKinds.get(t.fromAccountId ?? '') === 'epargne') {
+      net.set(t.fromAccountId!, (net.get(t.fromAccountId!) ?? 0) - t.amount)
+    }
+  }
+  return net
+}

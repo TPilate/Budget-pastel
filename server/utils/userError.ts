@@ -8,3 +8,10 @@ import { createError } from 'h3'
 export function userError(statusCode: number, statusMessage: string, message: string) {
   return createError({ statusCode, statusMessage, message, data: { message } })
 }
+
+// Same Intl options as formatEuro in app/utils/currency.ts, for messages built on the server.
+const EURO_FORMAT = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+export function formatEuroServer(value: number) {
+  return `${EURO_FORMAT.format(value)} €`
+}

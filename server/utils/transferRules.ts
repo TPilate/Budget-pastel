@@ -1,7 +1,8 @@
 import type { H3Event } from 'h3'
 import { createError } from 'h3'
 import { createSupabaseServerClient } from './supabase'
-import { userError } from './userError'
+import { userError, formatEuroServer } from './userError'
+import { fetchBudgetLibre } from './budgetLibreQuery'
 import type { TransferEndpoint, TransferInput } from '../../shared/schemas/transfer'
 import type { transfers } from '../../drizzle/schema'
 
@@ -86,4 +87,15 @@ export async function assertTransferEndpoints(event: H3Event, input: TransferInp
 
 export function assertNotClosureRow(row: { source: string }, message: string): void {
   if (row.source === 'closure') throw userError(409, 'Closure row', message)
+}
+
+// Money taken from the month's budget cannot exceed what no envelope holds. An edit is
+// re-checked with the row itself left out, so it is not counted against its own change.
+export async function assertWithinBudgetLibre(event: H3Event, input: TransferInput, excludeTransferId?: string): Promise<void> {
+  if (input.from.kind !== 'budget') return
+  const [year, month] = input.date.split('-').map(Number) as [number, number]
+  const libre = await fetchBudgetLibre(event, { year, month }, { excludeTransferId })
+  if (input.amount > libre + 0.005) {
+    throw userError(400, 'Budget libre exceeded', `Le budget du mois n'a que ${formatEuroServer(libre)} de disponible.`)
+  }
 }

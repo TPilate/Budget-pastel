@@ -39,9 +39,18 @@ function assertOk(table: string, error: { message: string } | null) {
 
 const sum = (rows: { amount: unknown }[]) => rows.reduce((total, row) => total + Number(row.amount), 0)
 
-export async function listBudgetEnvelopeLedgers(event: H3Event, year: number, month: number): Promise<BudgetEnvelopeLedger[]> {
+export async function listBudgetEnvelopeLedgers(
+  event: H3Event,
+  year: number,
+  month: number,
+  options: { excludeTransferId?: string } = {},
+): Promise<BudgetEnvelopeLedger[]> {
   const supabase = createSupabaseServerClient(event)
   const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+
+  let transferQuery = supabase.from('transfers').select('id,from_envelope_id,to_envelope_id,amount')
+    .eq('year_assigned', year).eq('month_assigned', month)
+  if (options.excludeTransferId) transferQuery = transferQuery.neq('id', options.excludeTransferId)
 
   const [envelopesRes, allocationsRes, expensesRes, incomesRes, transfersRes] = await Promise.all([
     supabase.from('envelopes').select('id,name,emoji,show_on_home,default_ceiling')
@@ -52,8 +61,7 @@ export async function listBudgetEnvelopeLedgers(event: H3Event, year: number, mo
       .eq('year_assigned', year).eq('month_assigned', month).not('envelope_id', 'is', null).abortSignal(signal),
     supabase.from('income_entries').select('target_envelope_id,amount')
       .eq('year_assigned', year).eq('month_assigned', month).not('target_envelope_id', 'is', null).abortSignal(signal),
-    supabase.from('transfers').select('from_envelope_id,to_envelope_id,amount')
-      .eq('year_assigned', year).eq('month_assigned', month).abortSignal(signal),
+    transferQuery.abortSignal(signal),
   ])
 
   assertOk('envelopes', envelopesRes.error)

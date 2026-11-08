@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3'
 import { fetchDashboard } from './dashboardQuery'
+import { fetchBudgetLibre } from './budgetLibreQuery'
 import { fetchMovements } from './movementsQuery'
 import { fetchWishlist } from './wishlistQuery'
 import { listBudgetEnvelopeLedgers } from './envelopeCeilingsQuery'
@@ -31,15 +32,16 @@ export async function getDashboardPage(event: H3Event, now: Date) {
 
 export async function getMouvementsPage(event: H3Event, now: Date) {
   const { year, month } = currentMonth(now)
-  const [movements, categories, accounts, envelopes, incomeTypes, savingsGoals] = await Promise.all([
+  const [movements, categories, accounts, envelopes, incomeTypes, savingsGoals, budgetLibre] = await Promise.all([
     fetchMovements(event, year, month),
     fetchActiveRows(event, 'categories'),
     fetchActiveRows(event, 'accounts'),
     fetchActiveRows(event, 'envelopes'),
     fetchActiveRows(event, 'income_types'),
     fetchSavingsGoals(event),
+    fetchBudgetLibre(event, { year, month }),
   ])
-  return { movements, reference: { categories, accounts, envelopes, incomeTypes, savingsGoals } }
+  return { movements, budgetLibre, reference: { categories, accounts, envelopes, incomeTypes, savingsGoals } }
 }
 
 export async function getEnveloppesPage(event: H3Event, now: Date) {

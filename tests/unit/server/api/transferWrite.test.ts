@@ -7,6 +7,8 @@ const state = vi.hoisted(() => ({
   accounts: [] as any[],
 }))
 const lock = vi.hoisted(() => ({ assertMonthOpen: vi.fn() }))
+const libre = vi.hoisted(() => ({ fetchBudgetLibre: vi.fn() }))
+vi.mock('../../../../server/utils/budgetLibreQuery', () => libre)
 vi.mock('../../../../server/utils/monthLock', () => lock)
 vi.mock('../../../../server/utils/auth', () => ({ requireUser: vi.fn(async () => ({ id: 'u1' })) }))
 vi.mock('../../../../server/utils/validateBody', () => ({ validateBody: vi.fn(async () => state.input) }))
@@ -61,6 +63,7 @@ const base = { amount: 20, reason: 'Test', date: '2026-10-31' }
 describe('transfer writes', () => {
   beforeEach(() => {
     lock.assertMonthOpen.mockReset()
+    libre.fetchBudgetLibre.mockReset().mockResolvedValue(1000)
     db.calls.inserted.length = 0
     db.calls.set.length = 0
     db.calls.deleted = 0
@@ -148,5 +151,41 @@ describe('transfer writes', () => {
     await expect(routes.delete(event())).rejects.toMatchObject({ statusCode: 409, data: { message: 'Transfert de clôture — non modifiable.' } })
     expect(db.calls.set).toHaveLength(0)
     expect(db.calls.deleted).toBe(0)
+  })
+
+  it('POST refuses Budget → LDDS above budget libre', async () => {
+    libre.fetchBudgetLibre.mockResolvedValue(150)
+    state.input = { ...base, amount: 230, from: budget, to: account('a1') }
+    await expect(routes.post(event())).rejects.toMatchObject({
+      statusCode: 400, data: { message: expect.stringContaining('150,00') },
+    })
+    expect(db.calls.inserted).toHaveLength(0)
+    expect(libre.fetchBudgetLibre).toHaveBeenCalledWith(expect.anything(), { year: 2026, month: 10 }, { excludeTransferId: undefined })
+
+    state.input = { ...base, amount: 150, from: budget, to: account('a1') }
+    await routes.post(event())
+    expect(db.calls.inserted).toHaveLength(1)
+  })
+
+  it('POST Budget → envelope is capped too', async () => {
+    libre.fetchBudgetLibre.mockResolvedValue(10)
+    state.input = { ...base, amount: 20, from: budget, to: envelope('e1') }
+    await expect(routes.post(event())).rejects.toMatchObject({ statusCode: 400, data: { message: expect.stringContaining('10,00') } })
+    expect(db.calls.inserted).toHaveLength(0)
+  })
+
+  it('PATCH re-checks with the transfer itself excluded', async () => {
+    state.current = { id: 'm1', source: 'manual', yearAssigned: 2026, monthAssigned: 10, fromKind: 'budget', toKind: 'account', toAccountId: 'a1' }
+    state.input = { ...base, from: budget, to: account('a1') }
+    await routes.patch({ context: { params: { id: 'm1' } } } as any)
+    expect(libre.fetchBudgetLibre).toHaveBeenCalledWith(expect.anything(), { year: 2026, month: 10 }, { excludeTransferId: 'm1' })
+  })
+
+  it('PATCH from budget to an account source skips the cap', async () => {
+    state.current = { id: 't1', source: 'manual', yearAssigned: 2026, monthAssigned: 10, fromKind: 'budget', toKind: 'account', toAccountId: 'a1' }
+    state.input = { ...base, from: account('a1'), to: budget }
+    await routes.patch(event())
+    expect(libre.fetchBudgetLibre).not.toHaveBeenCalled()
+    expect(db.calls.set).toHaveLength(1)
   })
 })

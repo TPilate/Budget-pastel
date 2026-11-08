@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 
 const lock = vi.hoisted(() => ({ assertMonthOpen: vi.fn(), input: null as any }))
 vi.mock('../../../../server/utils/monthLock', () => ({ assertMonthOpen: lock.assertMonthOpen }))
-vi.mock('../../../../server/utils/transferRules', async (orig) => ({ ...(await orig<any>()), assertTransferEndpoints: vi.fn() }))
+vi.mock('../../../../server/utils/transferRules', async (orig) => ({ ...(await orig<any>()), assertTransferEndpoints: vi.fn(), assertWithinBudgetLibre: vi.fn() }))
 vi.mock('../../../../server/utils/auth', () => ({ requireUser: vi.fn(async () => ({ id: 'u1', email: null })) }))
 vi.mock('../../../../server/utils/validateBody', () => ({ validateBody: vi.fn(async () => lock.input) }))
 

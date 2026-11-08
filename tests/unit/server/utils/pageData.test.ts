@@ -10,6 +10,7 @@ const deferred = vi.hoisted(() => {
 
 const src = vi.hoisted(() => ({
   fetchDashboard: deferred.make('fetchDashboard'),
+  fetchBudgetLibre: deferred.make('fetchBudgetLibre'),
   fetchMovements: deferred.make('fetchMovements'),
   fetchWishlist: deferred.make('fetchWishlist'),
   listBudgetEnvelopeLedgers: deferred.make('listBudgetEnvelopeLedgers'),
@@ -21,6 +22,7 @@ const src = vi.hoisted(() => ({
 }))
 
 vi.mock('../../../../server/utils/dashboardQuery', () => ({ fetchDashboard: src.fetchDashboard }))
+vi.mock('../../../../server/utils/budgetLibreQuery', () => ({ fetchBudgetLibre: src.fetchBudgetLibre }))
 vi.mock('../../../../server/utils/movementsQuery', () => ({ fetchMovements: src.fetchMovements }))
 vi.mock('../../../../server/utils/wishlistQuery', () => ({ fetchWishlist: src.fetchWishlist }))
 vi.mock('../../../../server/utils/envelopeCeilingsQuery', () => ({ listBudgetEnvelopeLedgers: src.listBudgetEnvelopeLedgers }))
@@ -49,22 +51,25 @@ describe('page composers', () => {
     for (const fn of Object.values(src)) fn.mockClear()
   })
 
-  it('Mouvements: the feed and the four reference lists start together, for the current month', async () => {
+  it('Mouvements: the feed, the four reference lists and the budget libre start together, for the current month', async () => {
     const result = getMouvementsPage(event, NOW)
     await Promise.resolve()
     expect(deferred.pending.map((call) => call.name).sort()).toEqual(
-      ['fetchActiveRows', 'fetchActiveRows', 'fetchActiveRows', 'fetchActiveRows', 'fetchMovements', 'fetchSavingsGoals'],
+      ['fetchActiveRows', 'fetchActiveRows', 'fetchActiveRows', 'fetchActiveRows', 'fetchBudgetLibre', 'fetchMovements', 'fetchSavingsGoals'],
     )
     expect(src.fetchMovements).toHaveBeenCalledWith(event, 2026, 10)
+    expect(src.fetchBudgetLibre).toHaveBeenCalledWith(event, { year: 2026, month: 10 })
     expect(src.fetchActiveRows.mock.calls.map((call) => call[1]).sort()).toEqual(['accounts', 'categories', 'envelopes', 'income_types'])
 
     const page = await settle(result, {
       fetchMovements: () => [{ id: 'm1' }],
       fetchActiveRows: (args) => [{ table: args[1] }],
       fetchSavingsGoals: () => [{ id: 'g1' }],
+      fetchBudgetLibre: () => 150,
     })
     expect(page).toEqual({
       movements: [{ id: 'm1' }],
+      budgetLibre: 150,
       reference: {
         categories: [{ table: 'categories' }],
         accounts: [{ table: 'accounts' }],
