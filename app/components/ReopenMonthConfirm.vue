@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { alsoReopenedPhrase } from '~/utils/reopenPhrase'
+
 interface YearMonth { year: number, month: number }
 interface ReopenPreview { months: string[], balanceWarning: boolean }
 
@@ -8,6 +10,8 @@ const emit = defineEmits<{ done: [], cancel: [] }>()
 const MONTH_NAMES = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 const label = computed(() => `${MONTH_NAMES[props.month.month - 1]} ${props.month.year}`)
 const mois = computed(() => `${props.month.year}-${String(props.month.month).padStart(2, '0')}`)
+
+const alsoReopened = computed(() => (preview.value ? alsoReopenedPhrase(preview.value.months) : null))
 
 const isHydrated = ref(false)
 const isSubmitting = ref(false)
@@ -45,7 +49,7 @@ async function reopen() {
 <template>
   <div class="space-y-2 rounded-[14px] border border-divider bg-white p-4 text-[12.5px] font-semibold text-ink" data-testid="reopen-confirm">
     <p>Le compte rendu de {{ label }} sera supprimé et refait à la prochaine clôture. Les reliquats reportés, versés à une poche ou envoyés vers un compte seront annulés.</p>
-    <p v-if="preview && preview.months.length > 1">{{ preview.months.join(' et ') }} seront aussi rouverts.</p>
+    <p v-if="alsoReopened">{{ alsoReopened }}</p>
     <p v-if="preview?.balanceWarning">Les soldes de comptes saisis à la main depuis la clôture seront à vérifier.</p>
     <p v-if="errorMessage" class="text-warn-ink" role="alert">{{ errorMessage }}</p>
     <div class="flex gap-2 pt-1">
