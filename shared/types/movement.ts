@@ -14,6 +14,8 @@ export interface Movement {
   amount: number
   sign: 'negative' | 'positive' | 'neutral'
   editable: boolean
+  // Expenses only: ticked off against the receipt.
+  verified?: boolean
   // The movement as its entry form submits it, so the edit drawer can prefill that form.
   fields: ExpenseEntryInput | IncomeEntryInput | TransferInput | SavingsInput
 }

@@ -174,3 +174,33 @@ describe('buildMovementsFeed — savings and editing', () => {
     expect(movement.fields).toEqual({ date: '2026-10-12', categoryId: null, label: 'Ramen', amount: 28, accountId: null, envelopeId: 'env', financedBy: 'budget' })
   })
 })
+
+describe('buildMovementsFeed — verified', () => {
+  it('carries verified on expenses only', () => {
+    const feed = buildMovementsFeed({
+      expenses: [{
+        id: 'e1', date: '2026-10-12', label: 'Ramen', amount: 28, financedBy: 'budget',
+        envelopeName: 'Restaurants', envelopeEmoji: '🍽️',
+        categoryName: '', categoryEmoji: '', categoryIsFixed: false, accountName: null,
+        categoryId: null, envelopeId: 'env', accountId: null, verified: true,
+      }],
+      incomes: [{
+        id: 'i1', date: '2026-10-14', label: 'Remboursement', amount: 18,
+        envelopeName: null, envelopeEmoji: null, incomeTypeId: 'it', monthAssigned: 10, yearAssigned: 2026,
+        detailsText: null, targetEnvelopeId: null,
+      }],
+      transfers: [{
+        id: 't1', date: '2026-10-19', reason: 'x', amount: 20,
+        fromEnvelopeName: 'Mode', toEnvelopeName: 'Restaurants', fromEnvelopeId: 'a', toEnvelopeId: 'b',
+      }],
+      savings: [{
+        id: 's1', date: '2026-10-05', year: 2026, month: 10, amount: 100, goalName: 'Voyage', source: 'manual', savingsGoalId: 'g1',
+      }],
+    })
+    const byId = Object.fromEntries(feed.map((m) => [m.id, m]))
+    expect(byId.e1.verified).toBe(true)
+    expect(byId.i1.verified).toBeUndefined()
+    expect(byId.t1.verified).toBeUndefined()
+    expect(byId.s1.verified).toBeUndefined()
+  })
+})

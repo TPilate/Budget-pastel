@@ -13,7 +13,7 @@ interface MouvementsPage { movements: Movement[], reference: EntryReferenceData 
 const { data: page, error } = useLazyFetch<MouvementsPage>('/api/pages/mouvements', { key: 'page-mouvements' })
 const data = computed(() => page.value?.movements ?? null)
 
-const activeFilter = ref<'all' | 'expense' | 'income' | 'transfer' | 'savings'>('all')
+const activeFilter = ref<'all' | 'expense' | 'income' | 'transfer' | 'savings' | 'to_verify'>('all')
 const searchText = ref('')
 
 const filterOptions = [
@@ -22,15 +22,38 @@ const filterOptions = [
   { value: 'income', label: 'Entrées' },
   { value: 'transfer', label: 'Transferts' },
   { value: 'savings', label: 'Épargne' },
+  { value: 'to_verify', label: 'À vérifier' },
 ]
 
 const filteredMovements = computed(() => {
   const movements = data.value ?? []
   const query = searchText.value.trim().toLowerCase()
   return movements
-    .filter((movement) => activeFilter.value === 'all' || movement.type === activeFilter.value)
+    .filter((movement) => {
+      if (activeFilter.value === 'all') return true
+      if (activeFilter.value === 'to_verify') return movement.type === 'expense' && !movement.verified
+      return movement.type === activeFilter.value
+    })
     .filter((movement) => !query || matchesMovementSearch(movement, searchText.value))
 })
+
+const toVerifyCount = computed(() => (data.value ?? []).filter((m) => m.type === 'expense' && !m.verified).length)
+
+const verifyError = ref<string | null>(null)
+
+// Optimistic: flip the tick at once, put it back if the server refuses.
+async function toggleVerified(movement: Movement) {
+  const next = !movement.verified
+  movement.verified = next
+  verifyError.value = null
+  try {
+    await $fetch(`/api/expenses/${movement.id}/verified`, { method: 'PATCH', body: { verified: next } })
+  }
+  catch (error) {
+    movement.verified = !next
+    verifyError.value = apiErrorMessage(error) ?? 'Impossible de mettre à jour la vérification.'
+  }
+}
 
 const selected = ref<Movement | null>(null)
 const drawerOpen = computed({
@@ -90,11 +113,16 @@ function formatDate(isoDate: string) {
         </template>
       </PageHeader>
 
+      <p v-if="page" class="-mt-3 text-[12.5px] font-semibold text-ink-muted">
+        {{ toVerifyCount === 0 ? 'Toutes les sorties sont vérifiées' : `${toVerifyCount} sorties à vérifier` }}
+      </p>
+
       <div class="rounded-[22px] bg-white p-4">
         <p v-if="error" class="py-6 text-center text-[12.5px] font-semibold text-warn-ink">
           Impossible de charger les mouvements.
         </p>
         <template v-else-if="page">
+          <p v-if="verifyError" class="pb-3 text-[12.5px] font-semibold text-warn-ink">{{ verifyError }}</p>
           <table class="w-full text-left text-[12.5px]">
             <thead>
               <tr class="text-[10.5px] font-bold uppercase tracking-wide text-ink-faint">
@@ -103,6 +131,7 @@ function formatDate(isoDate: string) {
                 <th class="pb-2">Enveloppe</th>
                 <th class="pb-2">Origine</th>
                 <th class="pb-2 text-right">Montant</th>
+                <th class="pb-2 pl-3 text-center">Vérifié</th>
               </tr>
             </thead>
             <tbody>
@@ -117,6 +146,18 @@ function formatDate(isoDate: string) {
                 <td class="py-2.5 text-ink-muted">{{ movement.envelopeLabel }}</td>
                 <td class="py-2.5 text-ink-muted">{{ movement.origin }}</td>
                 <td class="py-2.5 text-right font-bold" :class="amountColorClass(movement)">{{ formatAmount(movement) }}</td>
+                <td class="py-2.5 pl-3 text-center">
+                  <label v-if="movement.type === 'expense'" class="inline-flex cursor-pointer items-center gap-1" @click.stop>
+                    <input
+                      type="checkbox"
+                      :checked="movement.verified"
+                      :aria-label="`Vérifié avec le ticket — ${movement.label}`"
+                      @click.stop
+                      @change="toggleVerified(movement)"
+                    >
+                    <span v-if="movement.verified" class="font-bold text-mint-ink" aria-hidden="true">✓</span>
+                  </label>
+                </td>
               </tr>
             </tbody>
           </table>

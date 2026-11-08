@@ -22,7 +22,7 @@ import { isMonthOpen } from './domain/closure'
 // `categories`/`envelopes`/`accounts` resolve unambiguously: expense_entries has
 // exactly one foreign key to each.
 const EXPENSE_SELECT
-  = 'id,date,label,amount,financed_by,category_id,envelope_id,account_id,'
+  = 'id,date,label,amount,financed_by,category_id,envelope_id,account_id,verified_at,'
   + 'categories(name,emoji,is_fixed),'
   + 'envelopes(name,emoji),'
   + 'accounts(name)'
@@ -141,6 +141,7 @@ async function fetchFeed(
       categoryId: row.category_id ?? null,
       envelopeId: row.envelope_id ?? null,
       accountId: row.account_id ?? null,
+      verified: row.verified_at != null,
     }
   })
 

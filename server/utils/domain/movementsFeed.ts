@@ -17,6 +17,7 @@ export interface RawExpenseMovement {
   categoryId: string | null
   envelopeId: string | null
   accountId: string | null
+  verified: boolean
 }
 
 export interface RawIncomeMovement {
@@ -87,6 +88,7 @@ export function buildMovementsFeed(input: {
     amount: -expense.amount,
     sign: 'negative',
     editable: monthOpen,
+    verified: expense.verified,
     fields: {
       date: expense.date,
       categoryId: expense.categoryId,

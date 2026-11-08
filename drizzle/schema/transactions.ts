@@ -14,6 +14,8 @@ export const expenseEntries = pgTable('expense_entries', {
   financedBy: financedByEnum('financed_by').notNull().default('budget'),
   monthAssigned: integer('month_assigned').notNull(),
   yearAssigned: integer('year_assigned').notNull(),
+  // Set when the user ticks the expense off against its receipt; null while unchecked.
+  verifiedAt: timestamp('verified_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   yearMonthIdx: index('expense_entries_year_month_idx').on(table.yearAssigned, table.monthAssigned),
