@@ -38,6 +38,11 @@ const closed = () => Object.assign(new Error('closed'), { statusCode: 409 })
 const expenseInput = { date: '2026-10-12', categoryId: null, label: 'Ramen', amount: 28, envelopeId: 'env', financedBy: 'budget' }
 const expenseRow = { id: 'm1', yearAssigned: 2026, monthAssigned: 10 }
 
+vi.mock('../../../../server/utils/transferRules', async (orig) => ({
+  ...(await orig<any>()),
+  assertTransferEndpoints: vi.fn(),
+}))
+
 describe('edit and delete movements', () => {
   beforeEach(() => {
     lock.assertMonthOpen.mockReset()
@@ -106,11 +111,11 @@ describe('edit and delete movements', () => {
     expect(db.calls.set[0]).toMatchObject({ expectedAmount: null })
   })
 
-  it('edits a transfer without moving it to another month', async () => {
-    state.current = { id: 'm1', yearAssigned: 2026, monthAssigned: 10 }
-    state.input = { fromEnvelopeId: 'a', toEnvelopeId: 'b', amount: 15, reason: 'Resto' }
+  it('edits a transfer, month from its date', async () => {
+    state.current = { id: 'm1', yearAssigned: 2026, monthAssigned: 10, source: 'manual' }
+    state.input = { from: { kind: 'envelope', envelopeId: 'a' }, to: { kind: 'envelope', envelopeId: 'b' }, amount: 15, reason: 'Resto', date: '2026-10-05' }
     await routes['transfers.patch'](event())
-    expect(db.calls.set[0]).toEqual({ fromEnvelopeId: 'a', toEnvelopeId: 'b', amount: '15', reason: 'Resto' })
+    expect(db.calls.set[0]).toMatchObject({ fromKind: 'envelope', fromEnvelopeId: 'a', toEnvelopeId: 'b', amount: '15', reason: 'Resto', monthAssigned: 10, yearAssigned: 2026 })
     expect(lock.assertMonthOpen).toHaveBeenCalledTimes(1)
   })
 

@@ -8,3 +8,5 @@ export const closureStatusEnum = pgEnum('closure_status', ['open', 'closed'])
 export const wishlistPriorityEnum = pgEnum('wishlist_priority', ['haute', 'moyenne', 'basse'])
 export const accountKindEnum = pgEnum('account_kind', ['courant', 'epargne'])
 export const savingsEntrySourceEnum = pgEnum('savings_entry_source', ['manual', 'closure'])
+
+export const transferEndpointKindEnum = pgEnum('transfer_endpoint_kind', ['envelope', 'budget', 'account'])

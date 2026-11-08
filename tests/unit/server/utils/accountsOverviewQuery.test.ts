@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => {
     accounts: { data: [], error: null },
     categories: { data: [], error: null },
     expense_entries: { data: [], error: null },
+    transfers: { data: [], error: null },
   }
   const eqCalls: Record<string, [string, unknown][]> = {}
 
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => {
           return builder
         },
         is: () => builder,
+        or: () => builder,
         order: () => builder,
         abortSignal: () => builder,
         then: (ok: any, err: any) => Promise.resolve(responseByTable[table]).then(ok, err),
@@ -48,6 +50,7 @@ describe('fetchAccountsOverview', () => {
     mocks.responseByTable.accounts = { data: [], error: null }
     mocks.responseByTable.categories = { data: [], error: null }
     mocks.responseByTable.expense_entries = { data: [], error: null }
+    mocks.responseByTable.transfers = { data: [], error: null }
     for (const key of Object.keys(mocks.eqCalls)) delete mocks.eqCalls[key]
     ledgerMock.mockReset().mockResolvedValue([])
     reserveMock.mockReset().mockResolvedValue([])
@@ -83,6 +86,23 @@ describe('fetchAccountsOverview', () => {
     }
     const overview = await fetchAccountsOverview(fakeEvent(), 2026, 9)
     expect(overview.accounts[0].balance).toBe(250)
+  })
+
+  it('adds account-side transfers made after the reference', async () => {
+    mocks.responseByTable.accounts = {
+      data: [{ id: 'a1', name: 'Compte', emoji: '💳', current_balance: '250.00', reference_set_at: '2026-11-01T10:00:00Z', kind: 'courant' }],
+      error: null,
+    }
+    mocks.responseByTable.transfers = {
+      data: [
+        { from_account_id: null, to_account_id: 'a1', amount: '100.00', created_at: '2026-11-02T10:00:00Z' },
+        { from_account_id: 'a1', to_account_id: null, amount: '30.00', created_at: '2026-11-03T10:00:00Z' },
+        { from_account_id: null, to_account_id: 'a1', amount: '999.00', created_at: '2026-10-30T10:00:00Z' },
+      ],
+      error: null,
+    }
+    const overview = await fetchAccountsOverview(fakeEvent(), 2026, 9)
+    expect(overview.accounts[0].balance).toBe(320)
   })
 
   it('derives fixed-charge tick state from this month\'s expenses', async () => {

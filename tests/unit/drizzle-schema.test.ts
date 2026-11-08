@@ -121,3 +121,12 @@ describe('user feedback A schema', () => {
     expect(savingsEntries.date.notNull).toBe(false)
   })
 })
+
+describe('transfers endpoints', () => {
+  it('carries a kind and an account on each side, and a source', () => {
+    const columns = Object.keys(getTableColumns(schema.transfers))
+    expect(columns).toEqual(expect.arrayContaining(['fromKind', 'toKind', 'fromAccountId', 'toAccountId', 'source']))
+    expect(schema.transfers.fromEnvelopeId.notNull).toBe(false)
+    expect(schema.transfers.toEnvelopeId.notNull).toBe(false)
+  })
+})

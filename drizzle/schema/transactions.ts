@@ -1,6 +1,6 @@
 import { pgTable, uuid, text, numeric, date, timestamp, integer, index, uniqueIndex, check } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
-import { financedByEnum } from './enums'
+import { financedByEnum, transferEndpointKindEnum, savingsEntrySourceEnum } from './enums'
 import { categories, envelopes, accounts, incomeTypes } from './reference'
 
 export const expenseEntries = pgTable('expense_entries', {
@@ -44,12 +44,19 @@ export const incomeEntries = pgTable('income_entries', {
 export const transfers = pgTable('transfers', {
   id: uuid('id').defaultRandom().primaryKey(),
   date: date('date').notNull(),
-  fromEnvelopeId: uuid('from_envelope_id').notNull().references(() => envelopes.id),
-  toEnvelopeId: uuid('to_envelope_id').notNull().references(() => envelopes.id),
+  // Each side is an envelope, the month's budget, or an account; the ids not used stay null.
+  fromKind: transferEndpointKindEnum('from_kind').notNull().default('envelope'),
+  fromEnvelopeId: uuid('from_envelope_id').references(() => envelopes.id),
+  fromAccountId: uuid('from_account_id').references(() => accounts.id),
+  toKind: transferEndpointKindEnum('to_kind').notNull().default('envelope'),
+  toEnvelopeId: uuid('to_envelope_id').references(() => envelopes.id),
+  toAccountId: uuid('to_account_id').references(() => accounts.id),
   amount: numeric('amount', { precision: 10, scale: 2 }).notNull(),
   reason: text('reason').notNull(),
   monthAssigned: integer('month_assigned').notNull(),
   yearAssigned: integer('year_assigned').notNull(),
+  // 'closure' transfers are created by closing a month and are read-only.
+  source: savingsEntrySourceEnum('source').notNull().default('manual'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   yearMonthIdx: index('transfers_year_month_idx').on(table.yearAssigned, table.monthAssigned),

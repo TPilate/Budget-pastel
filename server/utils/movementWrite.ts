@@ -38,9 +38,3 @@ export async function deleteRow(table: any, id: string): Promise<{ id: string }>
   await withDbTimeout(db.delete(table).where(eq(table.id, id)))
   return { id }
 }
-
-export function assertNotClosureVersement(row: { source: string }): void {
-  if (row.source === 'closure') {
-    throw userError(409, 'Closure versement', 'Versement de clôture — non modifiable.')
-  }
-}

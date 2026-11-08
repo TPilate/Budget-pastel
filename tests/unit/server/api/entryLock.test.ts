@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 
 const lock = vi.hoisted(() => ({ assertMonthOpen: vi.fn(), input: null as any }))
 vi.mock('../../../../server/utils/monthLock', () => ({ assertMonthOpen: lock.assertMonthOpen }))
+vi.mock('../../../../server/utils/transferRules', async (orig) => ({ ...(await orig<any>()), assertTransferEndpoints: vi.fn() }))
 vi.mock('../../../../server/utils/auth', () => ({ requireUser: vi.fn(async () => ({ id: 'u1', email: null })) }))
 vi.mock('../../../../server/utils/validateBody', () => ({ validateBody: vi.fn(async () => lock.input) }))
 
@@ -35,10 +36,6 @@ describe('closed-month lock on every create endpoint', () => {
     db.values.mockClear()
   })
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
   it('checks an expense against the month of its date', async () => {
     lock.input = { date: '2026-09-28', categoryId: 'c', label: 'x', amount: 10, financedBy: 'budget' }
     await routes.expenses(event())
@@ -57,28 +54,17 @@ describe('closed-month lock on every create endpoint', () => {
     expect(lock.assertMonthOpen).toHaveBeenCalledWith(expect.anything(), 2026, 9)
   })
 
-  it('checks a transfer against the current month', async () => {
-    lock.input = { fromEnvelopeId: 'a', toEnvelopeId: 'b', amount: 10, reason: 'r' }
+  it('checks a transfer against the month of its date', async () => {
+    lock.input = { from: { kind: 'budget' }, to: { kind: 'account', accountId: 'a' }, amount: 10, reason: 'r', date: '2026-09-30' }
     await routes.transfers(event())
-    expect(lock.assertMonthOpen).toHaveBeenCalledTimes(1)
-  })
-
-  it('dates a transfer by the Paris month, not UTC', async () => {
-    // 23:30 UTC on 31 October is 00:30 on 1 November in Paris. The form has no month
-    // field, so a UTC date would drop the transfer into October, possibly closed.
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-10-31T23:30:00Z'))
-    lock.input = { fromEnvelopeId: 'a', toEnvelopeId: 'b', amount: 10, reason: 'r' }
-    await routes.transfers(event())
-    expect(lock.assertMonthOpen).toHaveBeenCalledWith(expect.anything(), 2026, 11)
-    expect(db.values).toHaveBeenCalledWith(expect.objectContaining({ date: '2026-11-01', monthAssigned: 11, yearAssigned: 2026 }))
+    expect(lock.assertMonthOpen).toHaveBeenCalledWith(expect.anything(), 2026, 9)
   })
 
   it.each(['expenses', 'incomes', 'transfers', 'savings'])('writes nothing to a closed month (%s)', async (name) => {
     lock.input = {
       date: '2026-09-28', categoryId: 'c', label: 'x', amount: 10, financedBy: 'budget',
       incomeTypeId: 'i', dateReceived: '2026-09-28', monthAssigned: 9, yearAssigned: 2026,
-      fromEnvelopeId: 'a', toEnvelopeId: 'b', reason: 'r', savingsGoalId: 'g',
+      from: { kind: 'budget' }, to: { kind: 'account', accountId: 'a' }, reason: 'r', savingsGoalId: 'g',
     }
     lock.assertMonthOpen.mockRejectedValueOnce(Object.assign(new Error('closed'), { statusCode: 409 }))
     await expect(routes[name](event())).rejects.toMatchObject({ statusCode: 409 })
