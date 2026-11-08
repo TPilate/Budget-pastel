@@ -29,7 +29,7 @@ const filteredMovements = computed(() => {
   const query = searchText.value.trim().toLowerCase()
   return movements
     .filter((movement) => activeFilter.value === 'all' || movement.type === activeFilter.value)
-    .filter((movement) => !query || movement.label.toLowerCase().includes(query))
+    .filter((movement) => !query || matchesMovementSearch(movement, searchText.value))
 })
 
 const selected = ref<Movement | null>(null)
@@ -84,7 +84,7 @@ function formatDate(isoDate: string) {
           <input
             v-model="searchText"
             type="search"
-            placeholder="Rechercher un mouvement…"
+            placeholder="Rechercher un libellé ou un montant…"
             class="rounded-[12px] border border-divider bg-white px-3 py-2 text-[12.5px]"
           >
         </template>
