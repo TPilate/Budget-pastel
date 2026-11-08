@@ -37,7 +37,10 @@ async function submit() {
       method: props.editing ? 'PATCH' : 'POST',
       body: { savingsGoalId: savingsGoalId.value, date: date.value, amount: amount.value },
     })
-    if (!props.editing) reset()
+    if (!props.editing) {
+      reset()
+      savingsGoalId.value = props.goals[0]?.id ?? ''
+    }
     emit('saved')
   } catch (error) {
     errorMessage.value = apiErrorMessage(error) ?? "Impossible d'enregistrer le versement. Vérifiez les champs et réessayez."
