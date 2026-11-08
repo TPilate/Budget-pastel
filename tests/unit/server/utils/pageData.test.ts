@@ -19,6 +19,7 @@ const src = vi.hoisted(() => ({
   fetchSavingsGoals: deferred.make('fetchSavingsGoals'),
   getClosureStatus: deferred.make('getClosureStatus'),
   fetchAccountBalances: deferred.make('fetchAccountBalances'),
+  fetchMonthContext: deferred.make('fetchMonthContext'),
 }))
 
 vi.mock('../../../../server/utils/dashboardQuery', () => ({ fetchDashboard: src.fetchDashboard }))
@@ -30,12 +31,15 @@ vi.mock('../../../../server/utils/reserveEnvelopeQuery', () => ({ listReserveEnv
 vi.mock('../../../../server/utils/referenceQuery', () => ({ fetchActiveRows: src.fetchActiveRows, fetchSavingsGoals: src.fetchSavingsGoals }))
 vi.mock('../../../../server/utils/accountBalanceQuery', () => ({ fetchAccountBalances: src.fetchAccountBalances }))
 vi.mock('../../../../server/utils/closureService', () => ({ getClosureStatus: src.getClosureStatus }))
+vi.mock('../../../../server/utils/monthContext', () => ({ fetchMonthContext: src.fetchMonthContext }))
 // The Data-API-only guards live in referenceQuery.test.ts and envelopeCeilingsQuery.test.ts.
 
 import { getDashboardPage, getMouvementsPage, getEnveloppesPage, getEnviesPage, getParametresPage } from '../../../../server/utils/pageData'
 
 const event = { context: {} } as any
 const NOW = new Date('2026-10-13T08:00:00Z')
+const SEP = { year: 2026, month: 9 }
+const CTX = { selected: { year: 2026, month: 9, label: 'Septembre 2026' }, closed: true }
 
 async function settle<T>(promise: Promise<T>, values: Record<string, (args: unknown[]) => unknown>): Promise<T> {
   // Let every synchronous call inside the composer happen, then resolve them all.
@@ -52,13 +56,14 @@ describe('page composers', () => {
   })
 
   it('Mouvements: the feed, the four reference lists and the budget libre start together, for the current month', async () => {
-    const result = getMouvementsPage(event, NOW)
+    const result = getMouvementsPage(event, SEP, NOW)
     await Promise.resolve()
     expect(deferred.pending.map((call) => call.name).sort()).toEqual(
-      ['fetchActiveRows', 'fetchActiveRows', 'fetchActiveRows', 'fetchActiveRows', 'fetchBudgetLibre', 'fetchMovements', 'fetchSavingsGoals'],
+      ['fetchActiveRows', 'fetchActiveRows', 'fetchActiveRows', 'fetchActiveRows', 'fetchBudgetLibre', 'fetchMonthContext', 'fetchMovements', 'fetchSavingsGoals'],
     )
-    expect(src.fetchMovements).toHaveBeenCalledWith(event, 2026, 10)
-    expect(src.fetchBudgetLibre).toHaveBeenCalledWith(event, { year: 2026, month: 10 })
+    expect(src.fetchMovements).toHaveBeenCalledWith(event, 2026, 9)
+    expect(src.fetchBudgetLibre).toHaveBeenCalledWith(event, { year: 2026, month: 9 })
+    expect(src.fetchMonthContext).toHaveBeenCalledWith(event, SEP, NOW)
     expect(src.fetchActiveRows.mock.calls.map((call) => call[1]).sort()).toEqual(['accounts', 'categories', 'envelopes', 'income_types'])
 
     const page = await settle(result, {
@@ -66,10 +71,12 @@ describe('page composers', () => {
       fetchActiveRows: (args) => [{ table: args[1] }],
       fetchSavingsGoals: () => [{ id: 'g1' }],
       fetchBudgetLibre: () => 150,
+      fetchMonthContext: () => CTX,
     })
     expect(page).toEqual({
       movements: [{ id: 'm1' }],
       budgetLibre: 150,
+      monthContext: CTX,
       reference: {
         categories: [{ table: 'categories' }],
         accounts: [{ table: 'accounts' }],
@@ -107,25 +114,26 @@ describe('page composers', () => {
   })
 
   it('Enveloppes: ledgers and reserves together', async () => {
-    const result = getEnveloppesPage(event, NOW)
+    const result = getEnveloppesPage(event, SEP, NOW)
     await Promise.resolve()
-    expect(deferred.pending.map((call) => call.name).sort()).toEqual(['listBudgetEnvelopeLedgers', 'listReserveEnvelopeBalances'])
-    expect(src.listBudgetEnvelopeLedgers).toHaveBeenCalledWith(event, 2026, 10)
-    const page = await settle(result, { listBudgetEnvelopeLedgers: () => [{ id: 'l1' }], listReserveEnvelopeBalances: () => [{ id: 'r1' }] })
-    expect(page).toEqual({ envelopes: [{ id: 'l1' }], reserves: [{ id: 'r1' }] })
+    expect(deferred.pending.map((call) => call.name).sort()).toEqual(['fetchMonthContext', 'listBudgetEnvelopeLedgers', 'listReserveEnvelopeBalances'])
+    expect(src.listBudgetEnvelopeLedgers).toHaveBeenCalledWith(event, 2026, 9)
+    const page = await settle(result, { listBudgetEnvelopeLedgers: () => [{ id: 'l1' }], listReserveEnvelopeBalances: () => [{ id: 'r1' }], fetchMonthContext: () => CTX })
+    expect(page).toEqual({ envelopes: [{ id: 'l1' }], reserves: [{ id: 'r1' }], monthContext: CTX })
   })
 
   it('Tableau de bord: dashboard and closure status together', async () => {
-    const result = getDashboardPage(event, NOW)
+    const result = getDashboardPage(event, SEP, NOW)
     await Promise.resolve()
-    expect(deferred.pending.map((call) => call.name).sort()).toEqual(['fetchDashboard', 'getClosureStatus'])
-    expect(src.fetchDashboard).toHaveBeenCalledWith(event, 2026, 10, NOW)
+    expect(deferred.pending.map((call) => call.name).sort()).toEqual(['fetchDashboard', 'fetchMonthContext', 'getClosureStatus'])
+    expect(src.fetchDashboard).toHaveBeenCalledWith(event, 2026, 9, NOW)
     expect(src.getClosureStatus).toHaveBeenCalledWith(event, NOW)
     const page = await settle(result, {
       fetchDashboard: () => ({ month: 'x' }),
       getClosureStatus: () => ({ closableMonth: null }),
+      fetchMonthContext: () => CTX,
     })
-    expect(page).toEqual({ dashboard: { month: 'x' }, closureStatus: { closableMonth: null } })
+    expect(page).toEqual({ dashboard: { month: 'x' }, closureStatus: { closableMonth: null }, monthContext: CTX })
   })
 
   it('fails the whole page when one read fails, never returning part of it', async () => {

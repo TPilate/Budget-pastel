@@ -8,31 +8,33 @@ import { listReserveEnvelopeBalances } from './reserveEnvelopeQuery'
 import { fetchActiveRows, fetchSavingsGoals } from './referenceQuery'
 import { fetchAccountBalances } from './accountBalanceQuery'
 import { getClosureStatus } from './closureService'
+import { fetchMonthContext } from './monthContext'
+import type { YearMonth } from './domain/closure'
 
 // One composer per page endpoint. Each starts every read at once and fails as a whole:
 // a client navigation then costs exactly one round trip and one session check, instead of
 // a chain of calls each paying its own (see the navigation-perf spec, §2).
 //
-// The current month uses the server clock, exactly as the endpoints these replace did.
+// Month pages take the selected month (parseMonthParam) and carry its monthContext, read
+// in the same Promise.all. Envies keeps the server clock: it is not month-navigable.
 
 function currentMonth(now: Date) {
   return { year: now.getFullYear(), month: now.getMonth() + 1 }
 }
 
-export async function getDashboardPage(event: H3Event, now: Date) {
-  const { year, month } = currentMonth(now)
+export async function getDashboardPage(event: H3Event, { year, month }: YearMonth, now: Date) {
   // fetchDashboard is the only pool-backed read here (reserve balances); the other is
   // Data API, so this never holds more pool slots than /api/dashboard alone did.
-  const [dashboard, closureStatus] = await Promise.all([
+  const [dashboard, closureStatus, monthContext] = await Promise.all([
     fetchDashboard(event, year, month, now),
     getClosureStatus(event, now),
+    fetchMonthContext(event, { year, month }, now),
   ])
-  return { dashboard, closureStatus }
+  return { dashboard, closureStatus, monthContext }
 }
 
-export async function getMouvementsPage(event: H3Event, now: Date) {
-  const { year, month } = currentMonth(now)
-  const [movements, categories, accounts, envelopes, incomeTypes, savingsGoals, budgetLibre] = await Promise.all([
+export async function getMouvementsPage(event: H3Event, { year, month }: YearMonth, now: Date) {
+  const [movements, categories, accounts, envelopes, incomeTypes, savingsGoals, budgetLibre, monthContext] = await Promise.all([
     fetchMovements(event, year, month),
     fetchActiveRows(event, 'categories'),
     fetchActiveRows(event, 'accounts'),
@@ -40,17 +42,18 @@ export async function getMouvementsPage(event: H3Event, now: Date) {
     fetchActiveRows(event, 'income_types'),
     fetchSavingsGoals(event),
     fetchBudgetLibre(event, { year, month }),
+    fetchMonthContext(event, { year, month }, now),
   ])
-  return { movements, budgetLibre, reference: { categories, accounts, envelopes, incomeTypes, savingsGoals } }
+  return { movements, budgetLibre, monthContext, reference: { categories, accounts, envelopes, incomeTypes, savingsGoals } }
 }
 
-export async function getEnveloppesPage(event: H3Event, now: Date) {
-  const { year, month } = currentMonth(now)
-  const [envelopes, reserves] = await Promise.all([
+export async function getEnveloppesPage(event: H3Event, { year, month }: YearMonth, now: Date) {
+  const [envelopes, reserves, monthContext] = await Promise.all([
     listBudgetEnvelopeLedgers(event, year, month),
     listReserveEnvelopeBalances(),
+    fetchMonthContext(event, { year, month }, now),
   ])
-  return { envelopes, reserves }
+  return { envelopes, reserves, monthContext }
 }
 
 export async function getEnviesPage(event: H3Event, now: Date) {

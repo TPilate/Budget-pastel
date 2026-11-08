@@ -198,6 +198,14 @@ describe('fetchDashboard', () => {
     expect(payload.recentMovements[0].id).toBe('m0')
   })
 
+  it('daysRemaining counts only the running month: a past month has none and perDay is the whole unspent', async () => {
+    const current = await fetchDashboard(fakeEvent(), 2026, 9, new Date(2026, 8, 20))
+    expect(current.month.daysRemaining).toBe(11)
+    const past = await fetchDashboard(fakeEvent(), 2026, 8, new Date(2026, 8, 20))
+    expect(past.month.daysRemaining).toBe(0)
+    expect(past.summary.perDay).toBe(past.summary.unspent)
+  })
+
   it('scopes both new reads to the requested month', async () => {
     await fetchDashboard(fakeEvent(), 2026, 9, new Date(2026, 8, 20))
     expect(mocks.eqCalls.expense_entries).toEqual([['year_assigned', 2026], ['month_assigned', 9]])

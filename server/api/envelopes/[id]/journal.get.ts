@@ -1,5 +1,6 @@
 import { requireUser } from '../../../utils/auth'
 import { fetchEnvelopeJournal } from '../../../utils/movementsQuery'
+import { parseMonthParam } from '../../../utils/domain/monthParam'
 
 export default defineEventHandler(async (event) => {
   // The journal reads through the Data API as the signed-in user, so RLS is what
@@ -12,6 +13,6 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Missing envelope id' })
   }
 
-  const now = new Date()
-  return fetchEnvelopeJournal(event, envelopeId, now.getFullYear(), now.getMonth() + 1)
+  const { year, month } = parseMonthParam(getQuery(event).mois, new Date())
+  return fetchEnvelopeJournal(event, envelopeId, year, month)
 })

@@ -4,6 +4,7 @@ import { listReserveEnvelopeBalances } from './reserveEnvelopeQuery'
 import { fetchMovements } from './movementsQuery'
 import { fetchMonthFigures, unwrap } from './monthFigures'
 import { compute503020, daysRemainingInMonth } from './domain/dashboard'
+import { parisYearMonth } from './domain/closure'
 import type { Bucket5030, DashboardSlice } from './domain/dashboard'
 import type { Movement } from './domain/movementsFeed'
 
@@ -48,7 +49,10 @@ export async function fetchDashboard(
   const ledgers = await listBudgetEnvelopeLedgers(event, year, month)
   const reserves = await listReserveEnvelopeBalances()
 
-  const daysRemaining = daysRemainingInMonth(today)
+  // Only the running month has days left; a past month has none, so perDay is the whole
+  // unspent amount and the UI hides the "par jour" line.
+  const current = parisYearMonth(today)
+  const daysRemaining = current.year === year && current.month === month ? daysRemainingInMonth(today) : 0
   const [figures, movements] = await Promise.all([
     fetchMonthFigures(event, year, month, daysRemaining),
     fetchMovements(event, year, month),
