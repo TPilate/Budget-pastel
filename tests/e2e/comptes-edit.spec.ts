@@ -98,3 +98,41 @@ test('a rejected amount is restored rather than left wrong on screen', async ({ 
   const after = await (await page.request.get('/api/accounts/overview')).json()
   expect(after.fixedCharges.lines[0].amount).toBe(original)
 })
+
+test('an account can be renamed, switched to épargne and given a balance', async ({ page }) => {
+  const created = await page.request.post('/api/accounts', { data: { name: 'zz-e2e-compte', emoji: '🧪' } })
+  expect(created.ok()).toBeTruthy()
+  const { id } = await created.json()
+
+  try {
+    await page.goto('/parametres')
+    await expect(page.getByRole('heading', { name: '🏦 Comptes' })).toBeVisible({ timeout: 15_000 })
+    await page.waitForFunction(
+      () => Boolean((document.querySelector('#__nuxt') as any)?.__vue_app__),
+      undefined,
+      { timeout: 20_000 },
+    )
+
+    await page.getByRole('button', { name: /zz-e2e-compte/ }).click()
+    const name = page.getByLabel('Nom du compte')
+    await expect(name).toBeEnabled({ timeout: 10_000 })
+    await name.fill('zz-e2e-compte-2')
+    await page.getByLabel('Type de compte').selectOption('epargne')
+
+    // An unparsable balance is refused on screen, without a request.
+    await page.getByLabel('Solde actuel').fill('abc')
+    await page.getByRole('button', { name: 'Enregistrer' }).click()
+    await expect(page.getByText('Saisissez un montant valide.')).toBeVisible()
+
+    await page.getByLabel('Solde actuel').fill('123,45')
+    await page.getByRole('button', { name: 'Enregistrer' }).click()
+    await expect(page.getByText('Enregistré').first()).toBeVisible({ timeout: 10_000 })
+
+    await openComptes(page)
+    const row = page.locator('li, div').filter({ hasText: 'zz-e2e-compte-2' }).filter({ hasText: '123,45 €' }).first()
+    await expect(row).toBeVisible({ timeout: 10_000 })
+  }
+  finally {
+    await page.request.patch(`/api/accounts/${id}`, { data: { archivedAt: new Date().toISOString() } })
+  }
+})

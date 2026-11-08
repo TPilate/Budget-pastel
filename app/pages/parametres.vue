@@ -6,12 +6,14 @@ interface ReferenceItem {
 }
 
 const { data: page, error, refresh } = useLazyFetch<{
-  categories: ReferenceItem[], envelopes: ReferenceItem[], incomeTypes: (ReferenceItem & { isSalary: boolean, expectedAmount: number | string | null })[], accounts: ReferenceItem[]
+  categories: ReferenceItem[], envelopes: ReferenceItem[], incomeTypes: (ReferenceItem & { isSalary: boolean, expectedAmount: number | string | null })[], accounts: (ReferenceItem & { kind?: 'courant' | 'epargne' | null })[], accountBalances: Record<string, number>
 }>('/api/pages/parametres', { key: 'page-parametres' })
 const categories = computed(() => page.value?.categories ?? [])
 const envelopes = computed(() => page.value?.envelopes ?? [])
 const incomeTypes = computed(() => page.value?.incomeTypes ?? [])
 const accounts = computed(() => page.value?.accounts ?? [])
+const editingAccountId = ref<string | null>(null)
+const editingAccount = computed(() => accounts.value.find(a => a.id === editingAccountId.value) ?? null)
 
 async function loadAll() {
   // One call instead of four refetches; envelope edits also move the sidebar's ceilings.
@@ -106,6 +108,10 @@ async function saveSalary(id: string, body: { isSalary?: boolean, expectedAmount
 function amountFromInput(event: Event): string | null {
   // Comma normalised like every other amount field here; blank clears the amount.
   return (event.target as HTMLInputElement).value.trim().replace(',', '.') || null
+}
+
+async function onAccountSaved() {
+  await loadAll()
 }
 
 async function addAccount() {
@@ -238,10 +244,20 @@ async function archive(endpoint: string, id: string) {
             :key="account.id"
             class="flex items-center gap-1 rounded-full bg-app-bg px-3 py-2 text-[11.5px] font-semibold text-ink"
           >
-            {{ account.emoji }} {{ account.name }}
-            <button type="button" class="text-ink-faint" @click="archive('/api/accounts', account.id)">×</button>
+            <button type="button" @click="editingAccountId = editingAccountId === account.id ? null : account.id">
+              {{ account.emoji }} {{ account.name }}
+              <span class="text-ink-muted">{{ formatEuro(page?.accountBalances?.[account.id] ?? 0) }}</span>
+            </button>
+            <button type="button" class="text-ink-faint" aria-label="Archiver" @click="archive('/api/accounts', account.id)">×</button>
           </span>
         </div>
+        <AccountEditForm
+          v-if="editingAccount"
+          :account="editingAccount"
+          :balance="page?.accountBalances?.[editingAccount.id] ?? 0"
+          @saved="onAccountSaved"
+          @cancel="editingAccountId = null"
+        />
         <div class="mt-3 flex gap-2">
           <input v-model="newAccount.emoji" placeholder="🏦" class="w-12 rounded-lg border border-divider px-2 py-1 text-center">
           <input v-model="newAccount.name" placeholder="Nouveau compte" class="flex-1 rounded-lg border border-divider px-2 py-1">

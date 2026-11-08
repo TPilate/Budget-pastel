@@ -42,9 +42,9 @@ const fixedColumns = computed(() => {
   return [lines.slice(0, half), lines.slice(half)]
 })
 
-// Nothing in the app can set current_balance yet, so every account reads 0 and
-// "Vraiment libre" would show a false negative (0 minus what's committed). Detect
-// that case here and hint at it instead of printing a misleading figure.
+// While no balance has been entered every account reads 0 and "Vraiment libre"
+// would show a false negative (0 minus what's committed). Detect that case here and
+// hint at it instead of printing a misleading figure.
 const hasNoRecordedBalances = computed(() => {
   const accounts = overview.value?.accounts ?? []
   return accounts.length > 0 && accounts.every((account) => account.balance === 0)
