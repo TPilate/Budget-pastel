@@ -1,6 +1,8 @@
 <script setup lang="ts">
 type SliceKey = 'fixed' | 'envelope' | 'variable' | 'savings' | 'accounts' | 'unspent'
 
+import type { MonthContext } from '~~/server/utils/monthContext'
+
 interface DashboardPayload {
   month: { year: number, month: number, label: string, daysRemaining: number }
   income: { received: number, salaryReceived: number, salaryExpected: number, salaryVariance: number }
@@ -25,9 +27,12 @@ interface DashboardPayload {
 interface DashboardPage {
   dashboard: DashboardPayload
   closureStatus: { closableMonth: { year: number, month: number, label: string, name: string } | null }
+  monthContext: MonthContext
 }
 
-const { data: page, error } = useLazyFetch<DashboardPage>('/api/pages/dashboard', { key: 'page-dashboard' })
+const selectedMonth = useSelectedMonth()
+const { data: page, error } = useLazyFetch<DashboardPage>('/api/pages/dashboard', { key: 'page-dashboard', query: selectedMonth.query })
+const monthContext = computed(() => page.value?.monthContext ?? null)
 const dashboard = computed(() => page.value?.dashboard ?? null)
 const closureStatus = computed(() => page.value?.closureStatus ?? null)
 
@@ -95,9 +100,9 @@ function shortDate(isoDate: string) {
 
 <template>
   <div class="flex flex-col gap-5">
-    <PageHeader :title="dashboard?.month.label ?? 'Tableau de bord'">
+    <PageHeader :title="dashboard?.month.label ?? 'Tableau de bord'" :month-context="monthContext">
       <template #context>
-        <span v-if="dashboard" class="text-[12.5px] font-semibold text-ink-muted">
+        <span v-if="dashboard && dashboard.month.daysRemaining > 0" class="text-[12.5px] font-semibold text-ink-muted">
           {{ dashboard.month.daysRemaining }} jours restants
         </span>
       </template>
@@ -114,6 +119,8 @@ function shortDate(isoDate: string) {
         </NuxtLink>
       </template>
     </PageHeader>
+
+    <ClosedMonthBanner v-if="monthContext" :context="monthContext" />
 
     <p v-if="error" class="rounded-[14px] border border-warn-bg bg-warn-bg p-4 text-[13px] font-semibold text-warn-ink">
       Impossible de charger le tableau de bord. Réessayez dans un instant.
@@ -145,7 +152,7 @@ function shortDate(isoDate: string) {
           <div class="rounded-[18px] border border-divider bg-app-bg p-5">
             <p class="text-[11.5px] font-semibold text-ink-faint">Reste à dépenser</p>
             <p class="pt-1 text-2xl font-extrabold text-ink">{{ formatEuroShort(dashboard.summary.unspent) }}</p>
-            <p class="pt-1 text-[11.5px] text-ink-faint">soit {{ formatEuroShort(dashboard.summary.perDay) }} / jour</p>
+            <p v-if="dashboard.month.daysRemaining > 0" class="pt-1 text-[11.5px] text-ink-faint">soit {{ formatEuroShort(dashboard.summary.perDay) }} / jour</p>
           </div>
         </div>
 

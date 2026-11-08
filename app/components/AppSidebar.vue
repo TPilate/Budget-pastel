@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const route = useRoute()
 const supabase = useSupabaseClient()
+const selectedMonth = useSelectedMonth()
 
 const navItems = [
   { path: '/', label: 'Tableau de bord' },
@@ -34,7 +35,7 @@ async function handleLogout() {
         <NuxtLink
           v-for="item in navItems"
           :key="item.path"
-          :to="item.path"
+          :to="{ path: item.path, query: selectedMonth.query.value }"
           class="rounded-[10px] px-3 py-2 text-[13.5px] font-semibold"
           :class="route.path === item.path ? 'bg-toggle-track text-ink' : 'text-ink-muted'"
         >

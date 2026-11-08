@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { MonthContext } from '~~/server/utils/monthContext'
+
 interface AccountsOverview {
   bankBalance: number
   committed: number
@@ -11,15 +13,15 @@ interface AccountsOverview {
     totalCount: number
   }
   variableSpend: { id: string, name: string, spent: number, ceiling: number }[]
+  monthContext: MonthContext
 }
 
+const selectedMonth = useSelectedMonth()
 const { data: overview, error, refresh } = useLazyFetch<AccountsOverview>('/api/accounts/overview', {
   key: 'accounts-overview',
+  query: selectedMonth.query,
 })
-
-const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
-const now = new Date()
-const currentMonthLabel = `${monthNames[now.getMonth()]} ${now.getFullYear()}`
+const monthContext = computed(() => overview.value?.monthContext ?? null)
 
 // formatEuro / formatEuroShort come from app/utils/currency.ts (auto-imported by Nuxt).
 
@@ -53,16 +55,15 @@ const hasNoRecordedBalances = computed(() => {
 
 <template>
   <div class="flex flex-col gap-5">
-    <PageHeader title="Comptes">
-      <template #context>
-        <span class="text-[12.5px] font-semibold text-ink-muted">{{ currentMonthLabel }}</span>
-      </template>
+    <PageHeader title="Comptes" :month-context="monthContext">
       <template #actions>
         <NuxtLink to="/parametres" class="rounded-[12px] border border-divider bg-white px-4 py-2 text-[12.5px] font-bold text-ink">
           Modifier les comptes
         </NuxtLink>
       </template>
     </PageHeader>
+
+    <ClosedMonthBanner v-if="monthContext" :context="monthContext" />
 
     <p v-if="error" class="rounded-[14px] border border-warn-bg bg-warn-bg p-4 text-[13px] font-semibold text-warn-ink">
       Impossible de charger les comptes. Réessayez dans un instant.

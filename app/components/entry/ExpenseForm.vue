@@ -17,6 +17,7 @@ const props = defineProps<{
   accounts: ReferenceItem[]
   envelopes: ReferenceItem[]
   editing?: { id: string, fields: ExpenseEntryInput } | null
+  defaultDate?: string
 }>()
 const initial = props.editing?.fields
 
@@ -28,7 +29,7 @@ const { displayValue, amount, pressDigit, pressComma, backspace, reset } = useAm
 
 const categoryId = ref(initial?.categoryId ?? categories.value[0]?.id ?? '')
 const label = ref(initial?.label ?? '')
-const date = ref(initial?.date ?? todayLocalIso())
+const date = ref(initial?.date ?? props.defaultDate ?? todayLocalIso())
 const accountId = ref(initial?.accountId ?? accounts.value[0]?.id ?? '')
 const financedBy = ref<'budget' | 'gift_given' | 'gift_received'>(initial?.financedBy ?? 'budget')
 // A gift_received expense is stored against the reserve envelope; the form derives that

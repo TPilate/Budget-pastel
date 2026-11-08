@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { MonthContext } from '~~/server/utils/monthContext'
+
 interface PocheView {
   id: string
   name: string
@@ -22,11 +24,15 @@ interface EpargnePayload {
     advice: { pointsShort: number, euroPerMonth: number } | null
   }
   contributions: { kind: string, label: string, detail: string, amount: number }[]
+  monthContext: MonthContext
 }
 
+const selectedMonth = useSelectedMonth()
 const { data: epargne, error, refresh } = useLazyFetch<EpargnePayload>('/api/epargne', {
   key: 'epargne',
+  query: selectedMonth.query,
 })
+const monthContext = computed(() => epargne.value?.monthContext ?? null)
 
 const editingId = ref<string | null>(null)
 function toggleEdit(id: string) {
@@ -106,7 +112,7 @@ async function createPoche() {
 
 <template>
   <div class="flex flex-col gap-5">
-    <PageHeader title="Épargne">
+    <PageHeader title="Épargne" :month-context="monthContext">
       <template #context>
         <span v-if="epargne" class="rounded-full bg-app-bg px-3 py-1 text-[12.5px] font-semibold text-ink-muted">
           {{ formatEuroShort(epargne.totals.monthly) }} répartis chaque mois
@@ -123,6 +129,8 @@ async function createPoche() {
         </button>
       </template>
     </PageHeader>
+
+    <ClosedMonthBanner v-if="monthContext" :context="monthContext" />
 
     <p v-if="error" class="rounded-[14px] border border-warn-bg bg-warn-bg p-4 text-[13px] font-semibold text-warn-ink">
       Impossible de charger l'épargne. Réessayez dans un instant.

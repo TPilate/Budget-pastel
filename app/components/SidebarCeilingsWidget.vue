@@ -8,7 +8,8 @@ interface EnvelopeCeiling {
   remaining: number
 }
 
-const { data, error, pending } = useLazyFetch<EnvelopeCeiling[]>('/api/envelopes/ceilings', { key: 'envelope-ceilings' })
+const selectedMonth = useSelectedMonth()
+const { data, error, pending } = useLazyFetch<EnvelopeCeiling[]>('/api/envelopes/ceilings', { key: 'envelope-ceilings', query: selectedMonth.query })
 
 const envelopesList = computed(() => data.value ?? [])
 const topThree = computed(() => envelopesList.value.slice(0, 3))
@@ -39,7 +40,7 @@ const totalRemaining = computed(() => envelopesList.value.reduce((sum, envelope)
           </span>
         </li>
       </ul>
-      <NuxtLink to="/enveloppes" class="mt-2 block text-[11px] font-bold text-ink-muted">
+      <NuxtLink :to="{ path: '/enveloppes', query: selectedMonth.query.value }" class="mt-2 block text-[11px] font-bold text-ink-muted">
         Voir les {{ envelopesList.length }} enveloppes
       </NuxtLink>
     </template>

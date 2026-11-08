@@ -145,3 +145,20 @@ test('a 401 on a page call re-checks the session', async ({ page }) => {
   // The session is still valid, so the /login middleware bounces the visitor back to `/`.
   await expect(page).toHaveURL(/\/$/, { timeout: 10_000 })
 })
+
+test('changing month on Mouvements costs one page call', async ({ page }) => {
+  await openHome(page)
+  await page.locator('a[href="/mouvements"]').first().click()
+  await page.waitForURL('**/mouvements')
+  await expect(page.getByRole('status')).toHaveCount(0, { timeout: 15_000 })
+  await page.waitForLoadState('networkidle')
+  const calls = apiCallsDuring(page)
+
+  const dataLoaded = page.waitForResponse((response) => new URL(response.url()).pathname === '/api/pages/mouvements', { timeout: 15_000 })
+  await page.getByRole('button', { name: 'Mois précédent' }).click()
+  await dataLoaded
+  await page.waitForLoadState('networkidle')
+
+  expect(calls).toEqual(['/api/pages/mouvements'])
+  expect(page.url()).toContain('mois=')
+})

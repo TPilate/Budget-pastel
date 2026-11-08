@@ -17,6 +17,8 @@ const props = defineProps<{
   incomeTypes: ReferenceItem[]
   envelopes: ReferenceItem[]
   editing?: { id: string, fields: IncomeEntryInput } | null
+  defaultDate?: string
+  defaultMonth?: { year: number, month: number }
 }>()
 const initial = props.editing?.fields
 
@@ -27,12 +29,12 @@ const { displayValue, amount, pressDigit, pressComma, backspace, reset } = useAm
 
 const incomeTypeId = ref(initial?.incomeTypeId ?? incomeTypes.value[0]?.id ?? '')
 const label = ref(initial?.label ?? '')
-const dateReceived = ref(initial?.dateReceived ?? todayLocalIso())
+const dateReceived = ref(initial?.dateReceived ?? props.defaultDate ?? todayLocalIso())
 const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 const now = new Date()
-const monthAssigned = ref(initial?.monthAssigned ?? now.getMonth() + 1)
-const yearAssigned = ref(initial?.yearAssigned ?? now.getFullYear())
-const yearOptions = [...new Set([now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1, ...(initial ? [initial.yearAssigned] : [])])].sort()
+const monthAssigned = ref(initial?.monthAssigned ?? props.defaultMonth?.month ?? now.getMonth() + 1)
+const yearAssigned = ref(initial?.yearAssigned ?? props.defaultMonth?.year ?? now.getFullYear())
+const yearOptions = [...new Set([now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1, ...(initial ? [initial.yearAssigned] : []), ...(props.defaultMonth ? [props.defaultMonth.year] : [])])].sort()
 const detailsText = ref(initial?.detailsText ?? '')
 const targetEnvelopeId = ref(initial?.targetEnvelopeId ?? '')
 

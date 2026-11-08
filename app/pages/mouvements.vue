@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Movement } from '~~/shared/types/movement'
+import type { MonthContext } from '~~/server/utils/monthContext'
 
 interface EntryReferenceData {
   categories: { id: string, name: string, emoji: string, requiresDetailsText?: boolean }[]
@@ -8,9 +9,11 @@ interface EntryReferenceData {
   incomeTypes: { id: string, name: string, emoji: string, requiresDetailsText?: boolean }[]
   savingsGoals: { id: string, name: string }[]
 }
-interface MouvementsPage { movements: Movement[], budgetLibre: number | null, reference: EntryReferenceData }
+interface MouvementsPage { movements: Movement[], budgetLibre: number | null, reference: EntryReferenceData, monthContext: MonthContext }
 
-const { data: page, error } = useLazyFetch<MouvementsPage>('/api/pages/mouvements', { key: 'page-mouvements' })
+const selectedMonth = useSelectedMonth()
+const { data: page, error } = useLazyFetch<MouvementsPage>('/api/pages/mouvements', { key: 'page-mouvements', query: selectedMonth.query })
+const monthContext = computed(() => page.value?.monthContext ?? null)
 const data = computed(() => page.value?.movements ?? null)
 
 const activeFilter = ref<'all' | 'expense' | 'income' | 'transfer' | 'savings' | 'to_verify'>('all')
@@ -28,6 +31,8 @@ const filterOptions = [
 // useLazyFetch data is a shallowRef, so mutating a movement in place would not re-render.
 // Ticks live in this reactive override map instead and are read through isVerified.
 const verifiedOverrides = ref<Record<string, boolean>>({})
+// Fresh page data (month change, refresh) carries the server's ticks; stale overrides must not mask them.
+watch(page, () => { verifiedOverrides.value = {} })
 function isVerified(movement: Movement): boolean {
   return verifiedOverrides.value[movement.id] ?? Boolean(movement.verified)
 }
@@ -95,7 +100,7 @@ function formatDate(isoDate: string) {
 <template>
   <div class="grid grid-cols-[1fr_360px] gap-5">
     <div class="flex flex-col gap-5">
-      <PageHeader title="Mouvements">
+      <PageHeader title="Mouvements" :month-context="monthContext">
         <template #context>
           <div class="flex gap-1 rounded-[12px] bg-toggle-track p-1">
             <button
@@ -119,6 +124,8 @@ function formatDate(isoDate: string) {
           >
         </template>
       </PageHeader>
+
+      <ClosedMonthBanner v-if="monthContext" :context="monthContext" />
 
       <p v-if="page" class="-mt-3 text-[12.5px] font-semibold text-ink-muted">
         {{ toVerifyCount === 0 ? 'Toutes les sorties sont vérifiées' : `${toVerifyCount} sorties à vérifier` }}
@@ -176,7 +183,7 @@ function formatDate(isoDate: string) {
       </div>
     </div>
 
-    <EntryPanel :reference-data="page?.reference ?? null" :reference-error="Boolean(error)" :budget-libre="page?.budgetLibre ?? null" />
+    <EntryPanel :reference-data="page?.reference ?? null" :reference-error="Boolean(error)" :budget-libre="page?.budgetLibre ?? null" :month-context="monthContext" />
 
     <DetailDrawer v-model:open="drawerOpen" :title="selected?.label ?? ''">
       <MovementEditor

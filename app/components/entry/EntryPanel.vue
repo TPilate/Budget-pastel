@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { TransferEndpoint } from '~~/shared/schemas/transfer'
+import type { MonthContext } from '~~/server/utils/monthContext'
 
 interface EnvelopeCeiling {
   id: string
@@ -43,7 +44,14 @@ const props = defineProps<{
   referenceData: EntryReferenceData | null
   referenceError: boolean
   budgetLibre?: number | null
+  monthContext?: MonthContext | null
 }>()
+
+const selectedMonth = computed(() => props.monthContext?.selected ?? null)
+const closed = computed(() => Boolean(props.monthContext?.closed))
+// Forms are remounted when the month changes so their date defaults follow it.
+const formKey = computed(() => selectedMonth.value ? `${selectedMonth.value.year}-${selectedMonth.value.month}` : 'none')
+const entryDate = computed(() => selectedMonth.value ? defaultEntryDate(selectedMonth.value, todayLocalIso()) : todayLocalIso())
 
 // The sidebar widget already loads the ceilings under this key on every page; reading the
 // same entry avoids a second request on each visit to Mouvements.
@@ -111,14 +119,19 @@ function handleSaved() {
   <div class="flex flex-col gap-4 rounded-[22px] bg-white p-5">
     <p class="text-[15px] font-extrabold text-ink">Nouvelle saisie</p>
 
-    <SegmentedToggle :options="modeOptions" :model-value="mode" @update:model-value="mode = $event as typeof mode" />
+    <SegmentedToggle v-if="!closed" :options="modeOptions" :model-value="mode" @update:model-value="mode = $event as typeof mode" />
 
-    <p v-if="referenceError" class="rounded-[16px] bg-app-bg p-3 text-[11px] font-semibold text-warn-ink">
+    <p v-if="closed && monthContext" class="rounded-[16px] bg-app-bg p-3 text-[12.5px] font-semibold text-warn-ink" data-testid="entry-closed">
+      {{ monthContext.selected.label }} est clôturé — saisie impossible.
+    </p>
+    <p v-else-if="referenceError" class="rounded-[16px] bg-app-bg p-3 text-[11px] font-semibold text-warn-ink">
       Impossible de charger le formulaire de saisie.
     </p>
     <template v-else-if="referenceData">
       <ExpenseForm
         v-if="mode === 'expense'"
+        :key="formKey"
+        :default-date="entryDate"
         :categories="categories"
         :accounts="accounts"
         :envelopes="envelopes"
@@ -128,6 +141,9 @@ function handleSaved() {
       />
       <IncomeForm
         v-else-if="mode === 'income'"
+        :key="formKey"
+        :default-date="entryDate"
+        :default-month="selectedMonth ?? undefined"
         :income-types="incomeTypes"
         :envelopes="envelopes"
         @saved="handleSaved"
@@ -136,10 +152,11 @@ function handleSaved() {
       />
       <TransferForm
         v-else-if="mode === 'transfer'"
+        :key="formKey"
         :envelopes="envelopes"
         :accounts="accounts"
         :budget-libre="budgetLibre ?? null"
-        :default-date="todayLocalIso()"
+        :default-date="entryDate"
         @saved="handleSaved"
         @amount-change="draftAmount = $event"
         @from-change="draftTransferFrom = $event"
@@ -147,6 +164,8 @@ function handleSaved() {
       />
       <SavingsForm
         v-else
+        :key="formKey"
+        :default-date="entryDate"
         :goals="savingsGoals"
         @saved="handleSaved"
         @amount-change="draftAmount = $event"

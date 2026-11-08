@@ -11,13 +11,14 @@ const emit = defineEmits<{ saved: []; 'amount-change': [number] }>()
 const props = defineProps<{
   goals: GoalItem[]
   editing?: { id: string, fields: SavingsInput } | null
+  defaultDate?: string
 }>()
 
 const initial = props.editing?.fields
 const { displayValue, amount, pressDigit, pressComma, backspace, reset } = useAmountInput(initial ? amountToBuffer(initial.amount) : '0')
 
 const savingsGoalId = ref(initial?.savingsGoalId ?? props.goals[0]?.id ?? '')
-const date = ref(initial?.date ?? todayLocalIso())
+const date = ref(initial?.date ?? props.defaultDate ?? todayLocalIso())
 
 watch(amount, (value) => emit('amount-change', value), { immediate: true })
 

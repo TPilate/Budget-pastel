@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { MonthContext } from '~~/server/utils/monthContext'
+
 interface BudgetEnvelopeLedger {
   id: string
   name: string
@@ -20,9 +22,11 @@ interface ReserveEnvelopeBalance {
   expensesTotal: number
 }
 
-const { data: page, error, refresh } = useLazyFetch<{ envelopes: BudgetEnvelopeLedger[], reserves: ReserveEnvelopeBalance[] }>(
-  '/api/pages/enveloppes', { key: 'page-enveloppes' },
+const selectedMonth = useSelectedMonth()
+const { data: page, error, refresh } = useLazyFetch<{ envelopes: BudgetEnvelopeLedger[], reserves: ReserveEnvelopeBalance[], monthContext: MonthContext }>(
+  '/api/pages/enveloppes', { key: 'page-enveloppes', query: selectedMonth.query },
 )
+const monthContext = computed(() => page.value?.monthContext ?? null)
 const envelopes = computed(() => page.value?.envelopes ?? null)
 const reserves = computed(() => page.value?.reserves ?? null)
 const envelopesError = error
@@ -37,9 +41,7 @@ async function refreshEnvelopes() {
   await Promise.all([refresh(), refreshNuxtData('envelope-ceilings')])
 }
 
-const monthNames = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
-const now = new Date()
-const currentMonthLabel = `${monthNames[now.getMonth()]} ${now.getFullYear()}`
+const currentMonthLabel = computed(() => monthContext.value?.selected.label ?? '')
 
 const totalCeiling = computed(() => (envelopes.value ?? []).reduce((sum, envelope) => sum + envelope.ceiling, 0))
 const totalNetSpent = computed(() => (envelopes.value ?? []).reduce((sum, envelope) => sum + envelope.netSpent, 0))
@@ -77,13 +79,16 @@ watch(selectedEnvelope, async (envelope) => {
   journalPending.value = true
   journalError.value = false
   try {
-    journal.value = await $fetch<Movement[]>(`/api/envelopes/${envelope.id}/journal`)
+    journal.value = await $fetch<Movement[]>(`/api/envelopes/${envelope.id}/journal`, { query: selectedMonth.query.value })
   } catch {
     journalError.value = true
   } finally {
     journalPending.value = false
   }
 })
+
+// The drawer shows one envelope of one month: leave it when the month changes.
+watch(selectedMonth.mois, () => { selectedEnvelope.value = null })
 
 async function onEnvelopeSaved() {
   const editedId = selectedEnvelope.value?.id
@@ -115,10 +120,7 @@ function formatDate(isoDate: string) {
 
 <template>
   <div class="flex flex-col gap-5">
-    <PageHeader title="Enveloppes">
-      <template #context>
-        <span class="text-[12.5px] font-semibold text-ink-muted">{{ currentMonthLabel }}</span>
-      </template>
+    <PageHeader title="Enveloppes" :month-context="monthContext">
       <template #actions>
         <NuxtLink to="/parametres" class="rounded-[12px] border border-divider bg-white px-4 py-2 text-[12.5px] font-bold text-ink">
           Modifier les plafonds
@@ -128,6 +130,8 @@ function formatDate(isoDate: string) {
         </NuxtLink>
       </template>
     </PageHeader>
+
+    <ClosedMonthBanner v-if="monthContext" :context="monthContext" />
 
     <div class="rounded-[22px] bg-white p-4">
       <p v-if="envelopesError" class="py-6 text-center text-[12.5px] font-semibold text-warn-ink">
