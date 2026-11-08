@@ -25,32 +25,39 @@ const filterOptions = [
   { value: 'to_verify', label: 'À vérifier' },
 ]
 
+// useLazyFetch data is a shallowRef, so mutating a movement in place would not re-render.
+// Ticks live in this reactive override map instead and are read through isVerified.
+const verifiedOverrides = ref<Record<string, boolean>>({})
+function isVerified(movement: Movement): boolean {
+  return verifiedOverrides.value[movement.id] ?? Boolean(movement.verified)
+}
+
 const filteredMovements = computed(() => {
   const movements = data.value ?? []
   const query = searchText.value.trim().toLowerCase()
   return movements
     .filter((movement) => {
       if (activeFilter.value === 'all') return true
-      if (activeFilter.value === 'to_verify') return movement.type === 'expense' && !movement.verified
+      if (activeFilter.value === 'to_verify') return movement.type === 'expense' && !isVerified(movement)
       return movement.type === activeFilter.value
     })
     .filter((movement) => !query || matchesMovementSearch(movement, searchText.value))
 })
 
-const toVerifyCount = computed(() => (data.value ?? []).filter((m) => m.type === 'expense' && !m.verified).length)
+const toVerifyCount = computed(() => (data.value ?? []).filter((m) => m.type === 'expense' && !isVerified(m)).length)
 
 const verifyError = ref<string | null>(null)
 
 // Optimistic: flip the tick at once, put it back if the server refuses.
 async function toggleVerified(movement: Movement) {
-  const next = !movement.verified
-  movement.verified = next
+  const next = !isVerified(movement)
+  verifiedOverrides.value = { ...verifiedOverrides.value, [movement.id]: next }
   verifyError.value = null
   try {
     await $fetch(`/api/expenses/${movement.id}/verified`, { method: 'PATCH', body: { verified: next } })
   }
   catch (error) {
-    movement.verified = !next
+    verifiedOverrides.value = { ...verifiedOverrides.value, [movement.id]: !next }
     verifyError.value = apiErrorMessage(error) ?? 'Impossible de mettre à jour la vérification.'
   }
 }
@@ -150,12 +157,12 @@ function formatDate(isoDate: string) {
                   <label v-if="movement.type === 'expense'" class="inline-flex cursor-pointer items-center gap-1" @click.stop>
                     <input
                       type="checkbox"
-                      :checked="movement.verified"
+                      :checked="isVerified(movement)"
                       :aria-label="`Vérifié avec le ticket — ${movement.label}`"
                       @click.stop
                       @change="toggleVerified(movement)"
                     >
-                    <span v-if="movement.verified" class="font-bold text-mint-ink" aria-hidden="true">✓</span>
+                    <span v-if="isVerified(movement)" class="font-bold text-mint-ink" aria-hidden="true">✓</span>
                   </label>
                 </td>
               </tr>
