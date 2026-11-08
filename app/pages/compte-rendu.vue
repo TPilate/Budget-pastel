@@ -223,6 +223,7 @@ async function confirmClosure() {
                   <div v-else class="flex flex-col gap-2">
                     <PillSelector
                       :options="destinationOptions"
+                      :disabled="!isHydrated"
                       :model-value="choices[envelope.id]?.destination ?? null"
                       @update:model-value="setDestination(envelope.id, $event)"
                     />

@@ -99,3 +99,20 @@ test('choosing Épargne reveals the poche selector, pre-filled', async ({ page }
   await row.getByRole('button', { name: 'Enveloppe' }).click()
   await expect(page.getByTestId(`target-select-${first.id}`)).toBeVisible()
 })
+
+test('choosing Vers un compte reveals the account selector, without submitting', async ({ page }) => {
+  const before = await (await page.request.get('/api/closure')).json()
+  const first = before.closable ? before.envelopes.find((e: any) => e.leftover > 0) : null
+  await openCompteRendu(page)
+  if (!first || before.accounts.length === 0) {
+    // No leftover to send, or no active account: the destination is not offered.
+    await expect(page.getByRole('button', { name: 'Vers un compte' })).toHaveCount(0)
+    return
+  }
+
+  const row = page.getByTestId(`row-${first.id}`)
+  await row.getByRole('button', { name: 'Vers un compte' }).click()
+  await expect(page.getByTestId(`account-select-${first.id}`)).toBeVisible()
+  await page.getByTestId(`account-select-${first.id}`).selectOption(before.accounts[0].id)
+  await expect(page.getByTestId('tile-accounts')).not.toHaveText('0 €')
+})
