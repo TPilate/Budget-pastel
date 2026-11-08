@@ -85,7 +85,7 @@ const isSubmitting = ref(false)
 const available = computed(() => {
   if (fromEndpoint.value?.kind !== 'budget' || props.budgetLibre === null) return null
   const own = initial?.from.kind === 'budget' ? initial.amount : 0
-  return props.budgetLibre + own
+  return Math.max(props.budgetLibre + own, 0)
 })
 
 const exceedsBudget = computed(() => available.value !== null && amount.value > available.value)

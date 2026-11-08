@@ -170,9 +170,9 @@ async function fetchFeed(
     const side = (kind: string, envelope: unknown, account: unknown, envelopeId: string | null, accountId: string | null): { label: string, endpoint: TransferEndpoint } => {
       if (kind === 'budget') return { label: transferSideLabel(kind, null), endpoint: { kind: 'budget' } }
       if (kind === 'account') {
-        return { label: transferSideLabel(kind, unwrap(account) as { name?: string, emoji?: string } | null), endpoint: { kind: 'account', accountId: accountId as string } }
+        return { label: transferSideLabel(kind, unwrap(account as EmbeddedName | EmbeddedName[] | null)), endpoint: { kind: 'account', accountId: accountId as string } }
       }
-      return { label: transferSideLabel(kind, unwrap(envelope) as { name?: string } | null), endpoint: { kind: 'envelope', envelopeId: envelopeId as string } }
+      return { label: transferSideLabel(kind, unwrap(envelope as EmbeddedName | EmbeddedName[] | null)), endpoint: { kind: 'envelope', envelopeId: envelopeId as string } }
     }
     // Rows from before the wider transfers have no kind: they were envelope to envelope.
     const from = side(row.from_kind ?? 'envelope', row.from_envelope, row.from_account, row.from_envelope_id, row.from_account_id)

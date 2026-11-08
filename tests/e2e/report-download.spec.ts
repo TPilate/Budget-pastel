@@ -25,6 +25,5 @@ test('the latest archived report downloads as a PDF with embedded fonts', async 
   // and sits in uncompressed /BaseFont and /FontName entries.
   const text = body.toString('latin1')
   const names = [...text.matchAll(/\/(?:BaseFont|FontName)\s*\/([A-Z]{6}\+[A-Za-z0-9-]+)/g)].map(m => m[1]!)
-  console.log('[report] fonts:', [...new Set(names)].join(', '))
   expect(names.some(name => name.includes('PlusJakartaSans'))).toBe(true)
 })

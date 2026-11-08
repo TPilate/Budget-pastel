@@ -276,10 +276,14 @@ function shortDate(isoDate: string) {
             <span class="text-[11.5px] font-semibold text-ink-faint">versés ce mois</span>
           </p>
 
-          <ul v-if="dashboard.savings.byGoal.length" class="flex flex-col pt-3">
+          <ul v-if="dashboard.savings.byGoal.length || dashboard.savings.byAccount.length" class="flex flex-col pt-3" data-testid="savings-lines">
             <li v-for="goal in dashboard.savings.byGoal" :key="goal.goalId" class="flex items-center justify-between py-1.5 text-[12.5px]">
               <span class="font-semibold text-ink">{{ goal.goalName }}</span>
               <span class="font-bold text-ink">{{ formatEuro(goal.amount) }}</span>
+            </li>
+            <li v-for="account in dashboard.savings.byAccount" :key="account.accountId" class="flex items-center justify-between py-1.5 text-[12.5px]">
+              <span class="font-semibold text-ink">{{ account.emoji }} {{ account.name }}</span>
+              <span class="font-bold text-ink">{{ formatEuro(account.amount) }}</span>
             </li>
           </ul>
 

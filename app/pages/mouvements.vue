@@ -128,7 +128,7 @@ function formatDate(isoDate: string) {
       <ClosedMonthBanner v-if="monthContext" :context="monthContext" />
 
       <p v-if="page" class="-mt-3 text-[12.5px] font-semibold text-ink-muted">
-        {{ toVerifyCount === 0 ? 'Toutes les sorties sont vérifiées' : `${toVerifyCount} sorties à vérifier` }}
+        {{ toVerifyCount === 0 ? 'Toutes les sorties sont vérifiées' : `${toVerifyCount} ${toVerifyCount === 1 ? 'sortie à vérifier' : 'sorties à vérifier'}` }}
       </p>
 
       <div class="rounded-[22px] bg-white p-4">
@@ -191,6 +191,7 @@ function formatDate(isoDate: string) {
         :key="selected.id"
         :movement="selected"
         :reference="page.reference"
+        :budget-libre="page.budgetLibre ?? null"
         @done="handleEdited"
       />
     </DetailDrawer>

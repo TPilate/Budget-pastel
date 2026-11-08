@@ -16,11 +16,19 @@ describe('fetchMonthContext', () => {
       firstDataMonth: { year: 2026, month: 8 },
       latestClosed: { year: 2026, month: 9 },
       closed: true,
+      reopenable: true,
     })
   })
   it('an open month after the latest closed one is not closed', async () => {
     const ctx = await fetchMonthContext({} as any, { year: 2026, month: 10 }, NOW)
     expect(ctx.closed).toBe(false)
+  })
+  it('a month before the latest closed one, never closed itself, is frozen but not reopenable', async () => {
+    state.value = { firstDataMonth: { year: 2026, month: 8 }, closedMonths: [{ year: 2026, month: 10 }] }
+    const ctx = await fetchMonthContext({} as any, { year: 2026, month: 9 }, NOW)
+    expect(ctx).toMatchObject({ closed: true, reopenable: false })
+    expect((await fetchMonthContext({} as any, { year: 2026, month: 10 }, NOW)).reopenable).toBe(true)
+    state.value = { firstDataMonth: { year: 2026, month: 8 }, closedMonths: [{ year: 2026, month: 9 }] }
   })
   it('no closure at all means nothing is closed', async () => {
     state.value = { firstDataMonth: null, closedMonths: [] }

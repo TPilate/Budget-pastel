@@ -3,6 +3,7 @@ import { createError } from 'h3'
 import { createSupabaseServerClient } from './supabase'
 import { userError, formatEuroServer } from './userError'
 import { fetchBudgetLibre } from './budgetLibreQuery'
+import { transferYearMonth } from '../../shared/schemas/transfer'
 import type { TransferEndpoint, TransferInput } from '../../shared/schemas/transfer'
 import type { transfers } from '../../drizzle/schema'
 
@@ -20,7 +21,7 @@ function sideValues(endpoint: TransferEndpoint) {
 
 // The row each create and edit endpoint writes, so POST and PATCH never derive it differently.
 export function transferRowValues(input: TransferInput) {
-  const [yearAssigned, monthAssigned] = input.date.split('-').map(Number)
+  const { year: yearAssigned, month: monthAssigned } = transferYearMonth(input.date)
   const from = sideValues(input.from)
   const to = sideValues(input.to)
   return {
@@ -93,9 +94,9 @@ export function assertNotClosureRow(row: { source: string }, message: string): v
 // re-checked with the row itself left out, so it is not counted against its own change.
 export async function assertWithinBudgetLibre(event: H3Event, input: TransferInput, excludeTransferId?: string): Promise<void> {
   if (input.from.kind !== 'budget') return
-  const [year, month] = input.date.split('-').map(Number) as [number, number]
+  const { year, month } = transferYearMonth(input.date)
   const libre = await fetchBudgetLibre(event, { year, month }, { excludeTransferId })
   if (input.amount > libre + 0.005) {
-    throw userError(400, 'Budget libre exceeded', `Le budget du mois n'a que ${formatEuroServer(libre)} de disponible.`)
+    throw userError(400, 'Budget libre exceeded', `Le budget du mois n'a que ${formatEuroServer(Math.max(libre, 0))} de disponible.`)
   }
 }

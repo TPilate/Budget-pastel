@@ -207,6 +207,20 @@ describe('reopen_month', () => {
     expect(await lddsBalance()).toBe(balanceBefore)
   })
 
+  it('closes and reopens under the authenticated role, as the app does', async () => {
+    // Supabase's default privileges give authenticated the tables; PGlite has none, and RLS still applies.
+    await db.exec('GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated')
+    await db.exec('SET ROLE authenticated')
+    try {
+      await closeSeptember()
+      expect(await count('month_closures')).toBe(1)
+      expect(await reopen(SEPTEMBER)).toBe(1)
+      await expectNoClosureRows()
+    } finally {
+      await db.exec('RESET ROLE')
+    }
+  })
+
   it('reopens later closed months too', async () => {
     await closeSeptember()
     await closeMonth(OCTOBER)

@@ -22,6 +22,14 @@ describe('reference patch schemas coerce archivedAt to a Date', () => {
     expect(result.archivedAt).toBeInstanceOf(Date)
   })
 
+  it('accountPatchSchema refuses an empty or null balance', () => {
+    expect(accountPatchSchema.safeParse({ balance: '' }).success).toBe(false)
+    expect(accountPatchSchema.safeParse({ balance: '  ' }).success).toBe(false)
+    expect(accountPatchSchema.safeParse({ balance: null }).success).toBe(false)
+    expect(accountPatchSchema.safeParse({ balance: 0 }).success).toBe(true)
+    expect(accountPatchSchema.parse({ balance: '12.5' }).balance).toBe(12.5)
+  })
+
   it('accountPatchSchema coerces balance and omits it when absent', () => {
     expect(accountPatchSchema.parse({ balance: '1234,5'.replace(',', '.') }).balance).toBe(1234.5)
     expect(accountPatchSchema.parse({ name: 'X' })).not.toHaveProperty('balance')

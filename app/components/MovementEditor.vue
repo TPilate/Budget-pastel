@@ -14,7 +14,7 @@ interface EntryReferenceData {
   savingsGoals: { id: string, name: string }[]
 }
 
-const props = defineProps<{ movement: Movement, reference: EntryReferenceData }>()
+const props = defineProps<{ movement: Movement, reference: EntryReferenceData, budgetLibre?: number | null }>()
 const emit = defineEmits<{ done: [] }>()
 
 const ENDPOINTS: Record<Movement['type'], string> = {
@@ -79,7 +79,7 @@ async function remove() {
         v-else-if="movement.type === 'transfer'"
         :envelopes="reference.envelopes"
         :accounts="reference.accounts"
-        :budget-libre="null"
+        :budget-libre="budgetLibre"
         :from-label="movement.fromLabel"
         :to-label="movement.toLabel"
         :default-date="movement.date"

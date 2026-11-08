@@ -43,6 +43,16 @@ describe('transferInputSchema', () => {
     expect(transferInputSchema.safeParse({ ...base, ...sides, date: '12/10/2026' }).success).toBe(false)
   })
 
+  it('refuses a date that is no calendar day, in French', () => {
+    const sides = { from: budget, to: acc(A1) }
+    const result = transferInputSchema.safeParse({ ...base, ...sides, date: '2026-02-31' })
+    expect(result.success).toBe(false)
+    if (!result.success) expect(result.error.issues[0].message).toBe('Date invalide.')
+    expect(transferInputSchema.safeParse({ ...base, ...sides, date: '2026-13-01' }).success).toBe(false)
+    expect(transferInputSchema.safeParse({ ...base, ...sides, date: '2028-02-29' }).success).toBe(true)
+    expect(transferInputSchema.safeParse({ ...base, ...sides, date: '2026-02-29' }).success).toBe(false)
+  })
+
   it('coerces a text amount', () => {
     const parsed = transferInputSchema.parse({ ...base, from: budget, to: acc(A1), amount: '12.5' })
     expect(parsed.amount).toBe(12.5)

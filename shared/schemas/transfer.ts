@@ -17,13 +17,26 @@ export function sameEndpoint(a: TransferEndpoint, b: TransferEndpoint): boolean 
   return endpointKey(a) === endpointKey(b)
 }
 
+// '2026-02-31' matches the shape but is no day: Date rolls it over, so compare it back.
+function isRealDate(value: string): boolean {
+  const [year, month, day] = value.split('-').map(Number) as [number, number, number]
+  const date = new Date(Date.UTC(year, month - 1, day))
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+}
+
+/** Year and month of a transfer date, which the schema has already checked. */
+export function transferYearMonth(date: string): { year: number, month: number } {
+  const [year, month] = date.split('-').map(Number) as [number, number]
+  return { year, month }
+}
+
 export const transferInputSchema = z
   .object({
     from: transferEndpointSchema,
     to: transferEndpointSchema,
     amount: z.coerce.number().positive(),
     reason: z.string().min(1),
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(isRealDate, { message: 'Date invalide.' }),
   })
   .refine((d) => !sameEndpoint(d.from, d.to), { message: 'Choisissez deux côtés différents.', path: ['to'] })
 

@@ -9,6 +9,8 @@ export interface MonthContext {
   firstDataMonth: YearMonth | null
   latestClosed: YearMonth | null
   closed: boolean
+  // Only a month with its own closure can be reopened; the months before the latest one are just frozen.
+  reopenable: boolean
 }
 
 // Data API only (fetchClosureState), so it can join any page's Promise.all.
@@ -21,5 +23,6 @@ export async function fetchMonthContext(event: H3Event, selected: YearMonth, now
     firstDataMonth,
     latestClosed,
     closed: !isMonthOpen(selected, latestClosed),
+    reopenable: closedMonths.some((m) => compareYearMonth(m, selected) === 0),
   }
 }
