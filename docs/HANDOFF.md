@@ -1,7 +1,8 @@
 # Handoff — where this project stands
 
-**Last updated:** 2026-10-13, on top of commit `23ed149` on `main`. The Compte rendu work is
-committed locally but **not pushed, not migrated and not E2E-tested** — see §6.
+**Last updated:** 2026-11-08, on branch `feat/comptes-transferts-mois` (base commit `c8b0e54`, plus the
+Task 16 commit). The comptes/transferts/mois work is migrated on the live database but **not pushed or
+deployed** — see §3 "Comptes, transferts et mois". The Compte rendu notes in §6 predate it.
 
 This file is the "pick up on another computer" summary. Everything below is verified against
 the repository as of that commit, not recalled from memory.
@@ -42,8 +43,8 @@ is what caused the original infinite-loading bug on the home page. Measured: the
 ```bash
 npm run dev                  # dev server
 npm run build                # production build (run this before believing anything works)
-npm test                     # vitest — currently 373 passing across 48 files
-npm run test:e2e             # playwright — perf.spec has 14 tests (read-only); entry.spec leaves permanent rows and epargne.spec leaves one renamed poche in the live database, run them deliberately
+npm test                     # vitest — currently 503 passing across 62 files
+npm run test:e2e             # playwright — perf.spec has 15 tests (read-only); entry.spec leaves permanent rows and epargne.spec leaves one renamed poche in the live database, run them deliberately
 npx playwright test tests/e2e/perf.spec.ts   # navigation performance (read-only, safe on the live DB)
 PERF_BASE_URL=https://budget-pastel.vercel.app npx playwright test tests/e2e/perf.spec.ts   # same, against production (read-only; run NO other spec there)
 npm run db:generate          # drizzle-kit generate (migrations)
@@ -80,6 +81,49 @@ Spec: `docs/superpowers/specs/2026-10-14-retours-utilisateurs-a-design.md`; plan
 - **Edit / delete**: click a row in Mouvements to open the drawer (`MovementEditor`); PATCH and DELETE routes exist for expenses, incomes, transfers and savings. A closed month is frozen: rows there are read-only ("Mois clôturé — non modifiable"), and closing versements cannot be changed. An expense may come out of an envelope with no category.
 - **Savings** are dated, additive versements entered from the entry panel's "🐷 Épargne" tab; they appear in the Mouvements feed (type `savings`) and can be edited or deleted like other movements.
 - `tests/e2e/movement-edit.spec.ts` cleans up after itself (it deletes every row it creates); its salary test skips until an income type is flagged. It is safe to run on the live DB, unlike `entry.spec.ts` (permanent rows) and `epargne.spec.ts` (one renamed poche per run).
+
+### Comptes, transferts et mois (2026-11-08)
+
+Spec `docs/superpowers/specs/2026-10-28-comptes-transferts-mois-design.md`, plan
+`docs/superpowers/plans/2026-11-08-comptes-transferts-mois.md`. Delivers: entry form reset, search by
+amount, a receipt tick on expenses, editable accounts with computed balances, transfers between
+Budget du mois / envelopes / accounts (with a budget-libre cap, so transfers are no longer
+envelope to envelope only), savings to épargne accounts, closure destination "vers un compte", an
+app-wide month selector (`?mois=YYYY-MM`) with a closed-month banner, and reopening a closed month
+(`reopen_month` + inline confirmation).
+
+- **Migrations 0008-0013 are applied to the live database:** 0008 `expense_entries.verified_at`;
+  0009 `accounts.reference_set_at`; 0010 transfer endpoint kinds/accounts/source plus CHECKs; 0011
+  closure destination `'account'` + `destination_account_id`; 0012 `close_month` with closure
+  transfers; 0013 `reopen_month`. `close_month` and `reopen_month` have `prosecdef = false`; `anon`
+  cannot execute `reopen_month`.
+- **Backup taken before:** `backups/2026-11-08-before-comptes-transferts.dump` (data-only, custom
+  format, gitignored, local machine only). Homebrew's `pg_dump` 14 refuses the server (17.6); use
+  `/opt/homebrew/opt/libpq/bin/pg_dump` (18.x). Restore with
+  `pg_restore --data-only --disable-triggers -d "$DATABASE_URL" <file>` into a schema at the same
+  migration level, or Supabase dashboard -> Database -> Backups.
+- **Household action:** switch "Livret LDDS" to kind Épargne in Paramètres -> Comptes. It is
+  "courant" today, so money sent to it does not count as savings until then.
+- **Balance model:** a hand-set balance is the reference; only transfers created after it move it.
+  Accepted drift: if a balance is hand-set after a month's closure and that month is then reopened
+  and re-closed, the closure transfer counts again (the reopen confirmation warns about it).
+- **After a reopen,** the next month keeps the allocation rows `close_month` inserted (carry and
+  deduction zeroed). A default-ceiling change made while a month far back is reopened is not picked
+  up by those rows.
+- **E2E safety:** `reopen_month` must never be called by E2E, and no E2E closes or reopens a month.
+  New specs, all self-cleaning or read-only: `entry-reset`, `expense-verified`, `transfer-wide`,
+  `month-navigation`, `report-download` (read-only, GET only), plus additions to `comptes-edit`,
+  `compte-rendu` and `perf`.
+- **`report-download.spec.ts`** downloads the latest archived PDF and checks `%PDF`, the content
+  type and the font names. pdfkit subsets fonts, so the names are prefixed and sit in uncompressed
+  `/BaseFont` and `/FontName` entries; locally they read `BZZZZZ+PlusJakartaSans-SemiBold`,
+  `DZZZZZ+PlusJakartaSans-ExtraBold`, `JZZZZZ+PlusJakartaSans-Bold`. Passes locally, not yet run
+  against production.
+- **SQL-function tests:** `@electric-sql/pglite` (pinned) runs them in `tests/unit/sql/`.
+- **Tests:** `npm test` = 503 passing across 62 files.
+- **Pending:** push + deploy (pushing `main` deploys), then
+  `PERF_BASE_URL=https://budget-pastel.vercel.app npx playwright test tests/e2e/report-download.spec.ts tests/e2e/perf.spec.ts`.
+  If the PDF fails there, fix font loading in `server/pdf/pdfFonts.ts`.
 
 ### The Compte rendu milestone (just finished, not yet live)
 
