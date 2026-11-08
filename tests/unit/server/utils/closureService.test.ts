@@ -6,6 +6,7 @@ const q = vi.hoisted(() => ({
   fetchMonthData: vi.fn(),
   fetchArchives: vi.fn(),
   fetchActiveAccounts: vi.fn(),
+  fetchBalanceSetAfterClosure: vi.fn(),
 }))
 vi.mock('../../../../server/utils/closureQuery', () => q)
 
@@ -20,7 +21,7 @@ vi.mock('../../../../server/utils/supabase', () => ({
 }))
 vi.mock('../../../../server/utils/db', () => { throw new Error('closureService must not touch the connection pool') })
 
-import { getClosureStatus, getClosurePage, closeMonth } from '../../../../server/utils/closureService'
+import { getClosureStatus, getClosurePage, closeMonth, reopenMonth, reopenPreview } from '../../../../server/utils/closureService'
 
 const event = { context: {} } as any
 const NOW = new Date('2026-10-13T08:00:00Z')
@@ -154,5 +155,44 @@ describe('closureService', () => {
     await expect(closeMonth(event, {
       year: 2026, month: 9, decisions: [{ envelopeId: 'sorties', destination: 'carry_over' }],
     }, NOW)).rejects.toMatchObject({ statusCode: 409, data: { message: 'Un mois plus récent est déjà clôturé.' } })
+  })
+
+  describe('reopening', () => {
+    it('reopenMonth calls reopen_month with year and month', async () => {
+      rpc.result = { data: 2, error: null }
+      expect(await reopenMonth(event, SEPT)).toEqual({ reopened: 2 })
+      expect(rpc.calls).toEqual([['reopen_month', { p_year: 2026, p_month: 9 }]])
+    })
+
+    it('maps MONTH_NOT_CLOSED to a French 409', async () => {
+      rpc.result = { data: null, error: { message: 'MONTH_NOT_CLOSED', code: 'P0001' } }
+      await expect(reopenMonth(event, SEPT)).rejects.toMatchObject({ statusCode: 409, data: { message: "Septembre 2026 n'est pas clôturé." } })
+    })
+
+    it('maps any other failure to a 500', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      rpc.result = { data: null, error: { message: 'boom' } }
+      await expect(reopenMonth(event, SEPT)).rejects.toMatchObject({ statusCode: 500 })
+    })
+
+    it('reopenPreview lists the month and every later closed month', async () => {
+      q.fetchClosureState.mockResolvedValue({ firstDataMonth: SEPT, closedMonths: [{ year: 2026, month: 10 }, SEPT] })
+      q.fetchBalanceSetAfterClosure.mockResolvedValue(false)
+      expect(await reopenPreview(event, SEPT)).toEqual({ months: ['Septembre 2026', 'Octobre 2026'], balanceWarning: false })
+    })
+
+    it('reopenPreview ignores earlier closed months', async () => {
+      q.fetchClosureState.mockResolvedValue({ firstDataMonth: { year: 2026, month: 8 }, closedMonths: [{ year: 2026, month: 8 }, SEPT, { year: 2026, month: 10 }] })
+      q.fetchBalanceSetAfterClosure.mockResolvedValue(false)
+      const preview = await reopenPreview(event, { year: 2026, month: 10 })
+      expect(preview.months).toEqual(['Octobre 2026'])
+    })
+
+    it('reopenPreview warns when a balance was hand-set after the closure', async () => {
+      q.fetchClosureState.mockResolvedValue({ firstDataMonth: SEPT, closedMonths: [SEPT] })
+      q.fetchBalanceSetAfterClosure.mockResolvedValue(true)
+      expect((await reopenPreview(event, SEPT)).balanceWarning).toBe(true)
+      expect(q.fetchBalanceSetAfterClosure).toHaveBeenCalledWith(event, SEPT)
+    })
   })
 })

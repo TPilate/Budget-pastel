@@ -223,3 +223,16 @@ export async function fetchReportSnapshot(event: H3Event, { year, month }: YearM
 
   return (data?.snapshot as ReportSnapshotV1 | undefined) ?? null
 }
+
+/** True when an account's balance was typed by hand after `ym` was closed (§4.2). */
+export async function fetchBalanceSetAfterClosure(event: H3Event, { year, month }: YearMonth): Promise<boolean> {
+  const supabase = createSupabaseServerClient(event)
+  const signal = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+  const closure = await supabase.from('month_closures').select('closed_at').eq('year', year).eq('month', month).abortSignal(signal).maybeSingle()
+  assertOk('month_closures', closure.error)
+  const closedAt = (closure.data as any)?.closed_at
+  if (!closedAt) return false
+  const { data, error } = await supabase.from('accounts').select('id').gt('reference_set_at', closedAt).limit(1).abortSignal(signal)
+  assertOk('accounts', error)
+  return (data ?? []).length > 0
+}

@@ -79,3 +79,21 @@ test('two quick clicks on the previous arrow goes back two months', async ({ pag
   await arrow.click({ noWaitAfter: true })
   await expect(page).toHaveURL(new RegExp(`mois=${expected}`))
 })
+
+// Never clicks the final "Rouvrir": September 2026 is genuinely closed (Global Constraints).
+test('the reopen confirmation explains what will be undone', async ({ page }) => {
+  const first = await open(page, '/mouvements')
+  const closed = first.monthContext.latestClosed
+  test.skip(!closed, 'No closed month in this database')
+  const mois = `${closed!.year}-${String(closed!.month).padStart(2, '0')}`
+  await open(page, `/mouvements?mois=${mois}`)
+
+  await page.getByRole('button', { name: 'Rouvrir le mois' }).click()
+  const confirm = page.getByTestId('reopen-confirm')
+  await expect(confirm).toContainText('sera supprimé et refait à la prochaine clôture')
+  await expect(confirm).toContainText('seront annulés')
+  await expect(confirm.getByRole('button', { name: 'Rouvrir', exact: true })).toBeEnabled({ timeout: 15_000 })
+  await confirm.getByRole('button', { name: 'Annuler' }).click()
+  await expect(confirm).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Rouvrir le mois' })).toBeVisible()
+})

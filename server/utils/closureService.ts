@@ -1,10 +1,10 @@
 import type { H3Event } from 'h3'
 import { createError } from 'h3'
 import { createSupabaseServerClient } from './supabase'
-import { fetchClosureState, fetchMonthData, fetchArchives, fetchActiveAccounts } from './closureQuery'
+import { fetchClosureState, fetchMonthData, fetchArchives, fetchActiveAccounts, fetchBalanceSetAfterClosure } from './closureQuery'
 import type { ArchiveRow } from './closureQuery'
 import {
-  closureWindow, computeLeftovers, planClosure, ClosurePlanError,
+  closureWindow, computeLeftovers, compareYearMonth, planClosure, ClosurePlanError,
   defaultSavingsGoalId, monthLabel, monthName, nextYearMonth,
 } from './domain/closure'
 import type { YearMonth } from './domain/closure'
@@ -140,4 +140,30 @@ export async function closeMonth(event: H3Event, input: ClosureInput, now: Date)
   }
 
   return closable
+}
+
+export async function reopenMonth(event: H3Event, ym: YearMonth): Promise<{ reopened: number }> {
+  const supabase = createSupabaseServerClient(event)
+  const { data, error } = await supabase
+    .rpc('reopen_month', { p_year: ym.year, p_month: ym.month })
+    .abortSignal(AbortSignal.timeout(10000))
+
+  if (error) {
+    if (error.message.includes('MONTH_NOT_CLOSED')) {
+      throw userError(409, 'Month not closed', `${monthLabel(ym)} n'est pas clôturé.`)
+    }
+    console.error(`[closureService] reopen_month failed: ${error.message}`)
+    throw createError({ statusCode: 500, statusMessage: 'Month reopening failed' })
+  }
+
+  return { reopened: Number(data) }
+}
+
+export async function reopenPreview(event: H3Event, ym: YearMonth): Promise<{ months: string[], balanceWarning: boolean }> {
+  const [{ closedMonths }, balanceWarning] = await Promise.all([fetchClosureState(event), fetchBalanceSetAfterClosure(event, ym)])
+  const months = closedMonths
+    .filter((closed) => compareYearMonth(closed, ym) >= 0)
+    .sort(compareYearMonth)
+    .map(monthLabel)
+  return { months, balanceWarning }
 }

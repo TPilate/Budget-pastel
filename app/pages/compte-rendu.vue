@@ -20,6 +20,8 @@ interface Choice { destination: Destination | null, savingsGoalId: string | null
 
 const { data: closure, error, refresh } = useLazyFetch<ClosurePagePayload>('/api/closure', { key: 'closure' })
 
+const reopening = ref<string | null>(null)
+
 const isHydrated = ref(false)
 onMounted(() => {
   isHydrated.value = true
@@ -281,9 +283,15 @@ async function confirmClosure() {
           <h2 class="text-[13.5px] font-extrabold text-ink">Archives</h2>
           <p v-if="closure.archives.length === 0" class="pt-2 text-[12px] font-semibold text-ink-faint">Aucun mois clôturé pour l'instant.</p>
           <ul v-else class="pt-2">
-            <li v-for="archive in closure.archives" :key="`${archive.year}-${archive.month}`" class="flex items-center justify-between border-t border-divider py-2 first:border-t-0">
-              <span class="text-[12.5px] font-bold text-ink">{{ archive.label }}</span>
-              <a :href="`/api/reports/${archive.year}/${archive.month}`" download class="text-[12px] font-bold text-ink underline">PDF</a>
+            <li v-for="archive in closure.archives" :key="`${archive.year}-${archive.month}`" class="border-t border-divider py-2 first:border-t-0">
+              <div class="flex items-center justify-between">
+                <span class="text-[12.5px] font-bold text-ink">{{ archive.label }}</span>
+                <span class="flex items-center gap-3">
+                  <a :href="`/api/reports/${archive.year}/${archive.month}`" download class="text-[12px] font-bold text-ink underline">PDF</a>
+                  <button v-if="reopening !== `${archive.year}-${archive.month}`" type="button" class="text-[12px] font-bold text-ink underline" @click="reopening = `${archive.year}-${archive.month}`">Rouvrir</button>
+                </span>
+              </div>
+              <ReopenMonthConfirm v-if="reopening === `${archive.year}-${archive.month}`" class="mt-2" :month="archive" @cancel="reopening = null" @done="reopening = null" />
             </li>
           </ul>
         </section>
