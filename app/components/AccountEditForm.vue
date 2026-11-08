@@ -26,6 +26,15 @@ watch(() => props.account.id, () => {
   savedAt.value = 0
 })
 
+// A balance that moves while the form is open (refresh after saving, a transfer elsewhere)
+// is followed as long as the field is pristine; a half-typed edit is never overwritten.
+watch(() => props.balance, (balance) => {
+  if (balanceText.value === initialBalanceText.value) {
+    balanceText.value = String(balance)
+    initialBalanceText.value = balanceText.value
+  }
+})
+
 // Anything typed before hydration is discarded, so the form stays disabled until mounted.
 const isHydrated = ref(false)
 onMounted(() => {

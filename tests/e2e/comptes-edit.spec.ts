@@ -125,12 +125,23 @@ test('an account can be renamed, switched to épargne and given a balance', asyn
     await expect(page.getByText('Saisissez un montant valide.')).toBeVisible()
 
     await page.getByLabel('Solde actuel').fill('123,45')
+    const patched = page.waitForRequest(r => r.method() === 'PATCH' && r.url().includes(`/api/accounts/${id}`))
     await page.getByRole('button', { name: 'Enregistrer' }).click()
-    await expect(page.getByText('Enregistré').first()).toBeVisible({ timeout: 10_000 })
+    const sent = (await patched).postDataJSON()
+    expect(sent).toMatchObject({ name: 'zz-e2e-compte-2', kind: 'epargne', balance: 123.45 })
+    await expect(page.locator('form').getByText('Enregistré', { exact: true })).toBeVisible({ timeout: 10_000 })
+
+    // Re-read from the server: the rename, the kind and the balance were really persisted.
+    const overview = await (await page.request.get('/api/accounts/overview')).json()
+    const saved = overview.accounts.find((a: { id: string }) => a.id === id)
+    expect(saved).toMatchObject({ name: 'zz-e2e-compte-2', kind: 'epargne' })
+    expect(saved.balance).toBeCloseTo(123.45, 2)
+    const parametres = await (await page.request.get('/api/pages/parametres')).json()
+    expect(parametres.accountBalances[id]).toBeCloseTo(123.45, 2)
 
     await openComptes(page)
-    const row = page.locator('li, div').filter({ hasText: 'zz-e2e-compte-2' }).filter({ hasText: '123,45 €' }).first()
-    await expect(row).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('zz-e2e-compte-2')).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByText('123,45 €')).toBeVisible()
   }
   finally {
     await page.request.patch(`/api/accounts/${id}`, { data: { archivedAt: new Date().toISOString() } })
